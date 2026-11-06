@@ -10,3 +10,14 @@ build/
 Thumbs.db
 .DS_Store
 .workbuddy/settings.local.json
+
+# 运行时数据与本地状态（留在硬盘，不进仓库）
+data/*
+!data/.gitkeep
+*.db
+*.db-shm
+*.db-wal
+*.pid
+*.pyc
+.workbuddy/tmp/
+

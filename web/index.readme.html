@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html data-page-node-id="vRSWVi09lsXt7PbU86Cl11" lang="zh-CN">
+<head data-page-node-id="bQ4MAwIEzh15hvv1A8w2j8">
+<script data-page-node-id="js4bEzDBHrvUZE0iweLPhC" src="/page/page_comm/inject.js"></script>
+<meta data-page-node-id="lG8GiehsSnDfBMgNG9uRy6" charset="utf-8">
+<meta data-page-node-id="81FeDvQZFZkCqowKRnnFvj" content="width=device-width, initial-scale=1" name="viewport">
+<title data-page-node-id="CAQeOAg37YcriuK63RvK0q" data-pnid-children="gGbgGAx9ipwgGrkuLCJw5S">WorkBuddy Token 面板 · v1.2.0</title>
+<style data-page-node-id="MzSGQeqIMdF5k1IBBrpqLc" data-pnid-children="vZJLMA9iXP2FeMzRnQN9os">
+  :root {
+    --bg: #f5f7fa;
+    --panel: #ffffff;
+    --border: #e3e7ee;
+    --text: #171a1f;
+    --muted: #6b7280;
+    --faint: #9aa1ad;
+    --accent: #2563eb;
+    --accent-soft: #e8f0fe;
+    --code-bg: #f2f4f8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117;
+      --panel: #151b23;
+      --border: #232b36;
+      --text: #e7ebf2;
+      --muted: #8f99a8;
+      --faint: #6b7484;
+      --accent: #4d9fff;
+      --accent-soft: #17304f;
+      --code-bg: #1b222c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+    font-size: 14px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 40px 20px 64px; }
+  header { margin-bottom: 28px; }
+  .eyebrow { font-size: 12px; letter-spacing: .12em; color: var(--faint); text-transform: uppercase; }
+  h1 { font-size: 30px; line-height: 1.25; margin: 8px 0 10px; letter-spacing: -.5px; }
+  .lede { color: var(--muted); font-size: 15px; margin: 0 0 16px; max-width: 62ch; }
+  .tags { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tag {
+    font-size: 12px; padding: 4px 10px; border-radius: 999px;
+    background: var(--accent-soft); color: var(--accent); font-weight: 600;
+  }
+  .tag.plain { background: transparent; border: 1px solid var(--border); color: var(--muted); font-weight: 500; }
+  section {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px 22px; margin-bottom: 14px;
+  }
+  h2 { font-size: 14px; margin: 0 0 12px; letter-spacing: .02em; color: var(--text); }
+  ul { margin: 0; padding-left: 1.15em; }
+  li { margin: 5px 0; color: var(--muted); }
+  li b { color: var(--text); font-weight: 600; }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    background: var(--code-bg); padding: 1px 6px; border-radius: 5px; font-size: 12.5px;
+  }
+  .steps { counter-reset: s; list-style: none; padding: 0; margin: 0; }
+  .steps li {
+    counter-increment: s; position: relative; padding-left: 30px; margin: 10px 0; color: var(--muted);
+  }
+  .steps li::before {
+    content: counter(s); position: absolute; left: 0; top: 1px;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent);
+    font-size: 11px; font-weight: 700; line-height: 20px; text-align: center;
+  }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+  .cell { border: 1px solid var(--border); border-radius: 9px; padding: 10px 12px; }
+  .cell .k { font-size: 12px; color: var(--faint); margin-bottom: 3px; }
+  .cell .v { font-size: 13px; color: var(--text); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); }
+  th { color: var(--faint); font-weight: 500; font-size: 12px; }
+  tr:last-child td { border-bottom: 0; }
+  footer { color: var(--faint); font-size: 12.5px; text-align: center; margin-top: 26px; line-height: 1.8; }
+  .note { color: var(--faint); font-size: 12.5px; margin: 10px 0 0; }
+</style>
+</head>
+<body data-page-node-id="sWDPR4Qa4ayR8i92rXoQrp">
+<div data-page-node-id="QkYOaDeIdHTogBBUdvGtDI" class="wrap">
+
+  <header data-page-node-id="rqfl4d50flGwHvUZ0C9p1v">
+    <div data-page-node-id="OrqvEm8TnOebrpaAeIgzxU" class="eyebrow"><!--pnid:v3VhHgN6Fnt94va9jlxGzi-->token-panel</div>
+    <h1 data-page-node-id="kggwIrWigxPp6xzv45N4Tr"><!--pnid:RilPSb0O8qbpfOHXtjAU4F-->WorkBuddy Token 面板 <span data-page-node-id="a1crD1WIltNCq2LB6B3Fqj" style="color:var(--faint); font-weight:400"><!--pnid:ySmObkpJUXlhq51JnXztg6-->v1.2.0</span></h1>
+    <p data-page-node-id="l7oQBmRufdWgGIdcvRtkuV" class="lede"><!--pnid:ZRHQpdWwvLdxDA7AR9td0R-->
+      一个只在本机运行的 WorkBuddy 用量看板。读取 <code data-page-node-id="vkOntpbNAYsd9kQC4gDvpC" data-pnid-children="FbyfWMI6k9sPd1jnBMKudd">~/.workbuddy</code><!--pnid:UqL2uTTaKuabylUBvRQczi--> 下的会话转录，
+      统计 token 与积分消耗，在浏览器里实时展示。数据不出本机。
+    </p>
+    <div data-page-node-id="5lfbrXSpa1Rmr5ZvjORYG3" class="tags">
+      <span data-page-node-id="4mHtiqIB76km3rNip8LDrE" class="tag"><!--pnid:13ySQ3Sjgmdq7PqGl3nLYJ-->纯本地</span>
+      <span data-page-node-id="LZHMuCGzvbtDD84mlYCZER" class="tag plain"><!--pnid:gQlYY8D4TtDHl4VGnE0dAk-->不上传任何内容</span>
+      <span data-page-node-id="XGFiZ5n1fw3QLLM84M80z2" class="tag plain"><!--pnid:FYhApW3sLLTukfaDYqgEku-->Python 3</span>
+      <span data-page-node-id="VMZdEsdcfFnpIK655jmGGo" class="tag plain"><!--pnid:ac00iulEqls176e9LH7aLj-->26 个文件 · 源码 1.2 MB</span>
+    </div>
+  </header>
+
+  <section data-page-node-id="BmYj5IgihuGVacc5HSOoJ6">
+    <h2 data-page-node-id="TKOWd5ymYybtn2kDYqZjtZ"><!--pnid:ELwTEXwMGluzhP2SRqCKK3-->这个版本新增了什么</h2>
+    <ul data-page-node-id="mRtaevFaJsIl138BICyvu5">
+      <li data-page-node-id="jmguTU3KaHvmHq0x6dcnOw"><b data-page-node-id="j9KhXr51e1si68nTeCyINO"><!--pnid:t00tgxQxfuihp0KeqHhzwS-->账号维度</b><!--pnid:MGXc5gYvbHRFHprnUodBtH-->：识别当前登录的 WorkBuddy 账号（UUID 前 8 位），顶栏常驻展示。</li>
+      <li data-page-node-id="6WRzEIjzydSc9fpg8HaapK"><b data-page-node-id="ZZvwkX2bPlT65nc98YbzT0"><!--pnid:dyA9VXJs4uWmjIOSqfJF8D-->按账号拆分</b><!--pnid:LyVXi9xMptrGep9RNtqyTD-->：所有统计可按账号筛选，饼图支持「账号占比」，各账号之和与全站总量严格守恒。</li>
+      <li data-page-node-id="HryNVGT9EOR4buXu1rmc84"><b data-page-node-id="5xZcGJ7VO1DklKcGbRD4yQ"><!--pnid:CtfAFJfB9744VleY9xEdQh-->切换时间线</b><!--pnid:fd7kyLR4E9lEfzq66CPjvl-->：记录每次从哪个账号切到哪个账号，保留 180 天。</li>
+      <li data-page-node-id="92dCtbxJ06laRdHqhN5Wfo"><b data-page-node-id="kWFGXAhUyIepL4ttl8OrPK"><!--pnid:Ooaxrhup2GWuNjP1DPCa25-->未归属透明</b><!--pnid:dQk9vnBACeaBFFl7bJRvtG-->：无法归属的历史会话单独成桶并给出覆盖率，不并进任何账号。</li>
+    </ul>
+  </section>
+
+  <section data-page-node-id="6PaNRbDeX4Ue6q5FUV78t5">
+    <h2 data-page-node-id="hzrZo8XvU4syx6W1Rr3uHm"><!--pnid:IOKz52byidwcv1EiWteABn-->怎么运行</h2>
+    <ol data-page-node-id="SFWs1yJjkK7k799AgWKspK" class="steps">
+      <li data-page-node-id="sGH3rlCMwSG8lZEzqZgQbA"><!--pnid:vVrxE4BamaKWCNRfyiZtq7-->确认这台电脑装过 WorkBuddy 并用它聊过天——数据来源就是它的转录。</li>
+      <li data-page-node-id="LB16DkVaynMvEvXzVlUsp2"><!--pnid:ToYKSWBrpjEdmzMlyAijQ4-->解压后双击 <code data-page-node-id="BCRUT4TkoPiNV3gJ0FFPaL" data-pnid-children="Ax9QLUUe7krIyqN2jtkEAG">start-panel.bat</code><!--pnid:Sp3y7Dr1JKXHEIM5hL520F-->，启动器会检查解释器、数据源与端口。</li>
+      <li data-page-node-id="4ViSNJLmYrORQvGWHaNCR3"><!--pnid:DmzEqWKJ3bnMQxAm9XZezJ-->浏览器打开 <code data-page-node-id="B1ef60V5T3VR1LsktRDdlY" data-pnid-children="EE3DbE3DpL1lPYLqS7vsVP">http://127.0.0.1:8770/</code><!--pnid:aYEOhMEwLBYeQ10k9iP2jt-->。首次会全量扫一遍历史转录，约 1～2 秒。</li>
+    </ol>
+    <p data-page-node-id="RoVrIhMXXqe4FHtOmnknsY" class="note"><!--pnid:77fqsypRIOIC3aBsWMx2H4-->不想用启动器：<code data-page-node-id="SLqbWAMhRfGYiVg6WoLSqV" data-pnid-children="nJn18DI9BSLOFeBxHPmODS">python server.py --open</code><!--pnid:Zy3c8YV7TAicKnMnZVnMsX-->。自检：<code data-page-node-id="BsxZUIOPATTde5T3ddPeub" data-pnid-children="XCXKAmI4qFyf0jbRYiEJwM">python tools/selftest.py</code><!--pnid:LAzOCv51UsGJyWa0WEaiqg-->。</p>
+  </section>
+
+  <section data-page-node-id="oIwuVsClfqQfSm7fmLXHIk">
+    <h2 data-page-node-id="8UfEpBsOj4q8gjjbN37jeO"><!--pnid:dvQDo2oq9kheToU1SN9rW8-->包里有什么</h2>
+    <div data-page-node-id="B805bQNomjnhpGB7g88PQD" class="grid">
+      <div data-page-node-id="pTQP0SMGK0Qr2N7gDeVcmF" class="cell">
+        <div data-page-node-id="UE9zI6ja4WpnAsqEJRBXHQ" class="k"><!--pnid:onkzQaa6iOGtBGc8maEkxU-->核心</div>
+        <div data-page-node-id="avWFF3lNoFl3hXpYDO0emc" class="v"><!--pnid:wtHU1YLpZCT1zGESdJ9Bk1-->server.py · indexer.py · store.py · aggregate.py · credit.py · notify.py · config.py</div>
+      </div>
+      <div data-page-node-id="rfX5HbondXOfpMM8QwqEDK" class="cell">
+        <div data-page-node-id="ysiYVlSwvsN8k3dqhoMQEN" class="k"><!--pnid:Jb91OwqcvjwwqEuW1Lth8E-->前端</div>
+        <div data-page-node-id="mzMlZSbzvZUc7b3eDYaL0n" class="v"><!--pnid:FTFuu09jnKFVTCdewqRZ4I-->web/index.html · app.js · style.css · vendor/echarts.min.js</div>
+      </div>
+      <div data-page-node-id="FUN6Oq1QDj2uUm91N1pAUv" class="cell">
+        <div data-page-node-id="KJSyRMKc8KBLP25AAD1k5I" class="k"><!--pnid:uqqq8xvEwHyXbLu60E4Ba1-->工具</div>
+        <div data-page-node-id="T0fBO85yE4NZuFIaCWQvZ3" class="v"><!--pnid:yHDmUvSRl0FudIyqLv5qoi-->tools/launch.py（启动器）· pack.py（打包）· selftest.py（边界自测）· bench.py · autostart.py</div>
+      </div>
+      <div data-page-node-id="R4SJWkGZ2HOBpXpjuB3bb1" class="cell">
+        <div data-page-node-id="BOgXrh4knfmEcMZOOzVfIB" class="k"><!--pnid:FLYNP4w9d4Mp8Q8i0k78m2-->脚本与文档</div>
+        <div data-page-node-id="F5Xj9PbeTGR8ClnYQEJhS8" class="v"><!--pnid:oFsLSyIerVkgt5P61IRF2l-->4 个 .bat · README.md · docs/ 两篇 · 首次运行.txt</div>
+      </div>
+    </div>
+    <p data-page-node-id="BSgyvGoYYZPs362WylzK89" class="note"><!--pnid:PA0zdm7cbcH49Rxv9VuxXd-->
+      运行时目录 <code data-page-node-id="THKoVpIdeBbagYe1x9l0Dk" data-pnid-children="m399PJ5ZS9sQgIc7h09fho">data/</code><!--pnid:0Me2O1aytwmBcInQcnViwB--> 不在包里：索引与日志属于单个机器，且删掉后会自动重建。
+    </p>
+  </section>
+
+  <section data-page-node-id="0hYFXSlMZKaGZXo8a6w7Ap">
+    <h2 data-page-node-id="Bha7ZX64FgsEVhSk0srw4o"><!--pnid:dqZCB3qyDxvQUWDLeHOp6t-->数据从哪来</h2>
+    <table data-page-node-id="p0Eoj9JKVgdIvOItnKmZnM">
+      <tr data-page-node-id="hZU8hr19ZGVITpGBZ6HZnB"><th data-page-node-id="WDm8je3Vb06GYU0LTJa1iS"><!--pnid:qaSd2LcUHdkb1KHjifA3Wp-->来源</th><th data-page-node-id="iGrG24Rzf2qCZ8IHRU50e0"><!--pnid:bP4wtw0aeyZGkUJO62tlO2-->路径</th><th data-page-node-id="gHylX6VNwDUOpFbS0MxnNq"><!--pnid:iZE6RchAfUgF5Y030iHFLH-->用途</th></tr>
+      <tr data-page-node-id="ZgXxq5Yxo1wsFy20VYvJ9m"><td data-page-node-id="TaxNSFaixcstNtLnxYbneF"><!--pnid:bd21kwMkEDDLPrUBJm2UUl-->会话转录</td><td data-page-node-id="LGIVA7McSEQ9aKo37ruDLO"><code data-page-node-id="d3SXdh1iNVpmbH7djP86Xm" data-pnid-children="ZnbGcE9RXpSH69N3IPEwGF">~/.workbuddy/projects/**/*.jsonl</code></td><td data-page-node-id="HS35J1FAa5iAmHFKMB4LPe"><!--pnid:G6TGJfrpcZDdY60BuMXjRa-->所有 token 数字</td></tr>
+      <tr data-page-node-id="XBTm9iWLo9pSqcc6lBLGLg"><td data-page-node-id="y2DksETzJXveMFrCyFUcBs"><!--pnid:NbPjrPX4KAVqfM1G84Slgs-->会话心跳</td><td data-page-node-id="TT84nSZutLQEZin3SAJfJ3"><code data-page-node-id="j1luuBXTWsVpaCChocDd7X" data-pnid-children="wi5RastZW7Vvxuqj2N47TE">~/.workbuddy/sessions/*.json</code></td><td data-page-node-id="HuhItDh3eLIUtKSrPz7tiG"><!--pnid:KeKE40mgGjYukv6fjXbd7J-->识别当前会话</td></tr>
+      <tr data-page-node-id="pnrwBa0FhxwCHInZaSgryc"><td data-page-node-id="6Q9e325g3VvvRPrR88ka2r"><!--pnid:dw6w8FblJzTroyzFwM4vAX-->本地库</td><td data-page-node-id="YwOuEpCn9xtz22uGEghUkl"><code data-page-node-id="p1RtE2eR7J24vVvR451uvE" data-pnid-children="QDjryzlT78GeorA4S83DDX">~/.workbuddy/workbuddy.db</code></td><td data-page-node-id="D634usuL9q1ADuq1MXGm53"><!--pnid:Z6z5FOKSP809GfcQrRbpWQ-->积分与账号归属（只读）</td></tr>
+    </table>
+    <p data-page-node-id="PjaeW1iCiB5QGri6JhD59j" class="note"><!--pnid:yosdpBvIugyxAcuwg8weeb-->全部只读，绝不修改上面任何文件。</p>
+  </section>
+
+  <footer data-page-node-id="OYN0nL3p5WRXdtYK5cpTqi"><!--pnid:2Ah20wCuiTJrL2AurAud8o-->
+    完整压缩包见本条目附件：token-panel-1.2.0.zip（0.41 MB）<br data-page-node-id="QRqDYomk7bUuwzPxU4wXtl"><!--pnid:ZDk8xYBl2Xjslev4vvVbqF-->
+    本页是项目的说明入口；面板本身需要在本机运行，无法在浏览器里直接打开。
+  </footer>
+
+</div>
+</body>
+</html>

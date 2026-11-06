@@ -1,0 +1,634 @@
+/* WorkBuddy Token 面板 —— 一屏布局，明暗双主题 */
+
+:root {
+  --bg: #f4f6f9;
+  --panel: #ffffff;
+  --border: #e4e7ec;
+  --text: #171a1f;
+  --muted: #6b7280;
+  --faint: #9aa1ad;
+  --accent: #2563eb;
+  --accent-2: #60a5fa;
+  --accent-soft: #e3ecfd;
+  --ok: #0f9d58;
+  --warn: #c77700;
+  --shadow: 0 1px 2px rgba(16, 24, 40, .05);
+  --grid: #eef1f5;
+  --track: #eef1f5;
+}
+
+[data-theme="dark"] {
+  --bg: #0d1117;
+  --panel: #151b23;
+  --border: #232b36;
+  --text: #e7ebf2;
+  --muted: #8f99a8;
+  --faint: #6b7484;
+  --accent: #4d9fff;
+  --accent-2: #7fbcff;
+  --accent-soft: #17304f;
+  --ok: #35c98a;
+  --warn: #e2a33c;
+  --shadow: none;
+  --grid: #1e2631;
+  --track: #1e2631;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body { overflow: hidden; }
+
+.app {
+  display: grid;
+  /* 关键：列宽必须用 minmax(0,1fr)。默认的 auto 会被内部 nowrap 的数字撑成最大内容宽度，
+     整页就会宽过手机屏幕、右侧被裁掉 */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(50px, auto) 132px minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, .95fr);
+  gap: 10px;
+  height: calc(100vh - 26px);
+  padding: 10px 12px 0;
+}
+
+/* ---------- 顶栏 ---------- */
+.bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;          /* 账号控件变多时换行，而不是把左侧状态挤到重叠 */
+  row-gap: 6px;
+  min-height: 50px;
+  gap: 14px;
+  padding: 0 4px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: .2px;
+}
+
+.pulse {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 0 0 rgba(53, 201, 138, .55);
+  animation: pulse 2.2s infinite;
+}
+
+@keyframes pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(53, 201, 138, .5); }
+  70%  { box-shadow: 0 0 0 7px rgba(53, 201, 138, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(53, 201, 138, 0); }
+}
+
+.meta { display: flex; align-items: center; gap: 8px; margin-left: 4px; flex: 0 0 auto; }
+
+.chip {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.live {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px 3px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  background: var(--accent-soft);
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.live::before {
+  content: "";
+  width: 6px; height: 6px; border-radius: 50%;
+  background: currentColor;
+}
+
+.live.warn { background: rgba(199, 119, 0, .12); color: var(--warn); }
+.live.down { background: rgba(220, 60, 60, .12); color: #dc3c3c; }
+
+.actions { margin-left: auto; display: flex; align-items: center; gap: 8px; position: relative; }
+
+.seg {
+  display: inline-flex;
+  padding: 2px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.seg button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .15s, color .15s;
+}
+
+.seg button:hover { color: var(--text); }
+
+.seg button.on {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+[data-theme="dark"] .seg button.on { color: #08121f; }
+
+/* 卡片标题里的小号切换器（每日趋势旁边的 30/90） */
+.seg.mini { padding: 1px; border-radius: 7px; margin-left: 8px; flex: 0 0 auto; }
+.seg.mini button { font-size: 10px; padding: 2px 7px; border-radius: 5px; }
+
+/* ---------- 账号 ---------- */
+.chip.acct {
+  color: var(--text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  max-width: 200px;          /* 自定义别名可能比 8 位 UUID 长，别撑破顶栏 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chip.acct.off { color: var(--muted); font-weight: 500; }
+
+.chip.btn { cursor: pointer; font-family: inherit; line-height: 1.4; }
+.chip.btn:hover { color: var(--text); border-color: var(--faint); }
+
+/* 账号分段按钮：UUID 前 8 位，长了也不许撑破顶栏 */
+.seg.acct button {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 切换时间线：绝对定位浮层，不占一屏栅格（.app 是固定的 5 行） */
+.pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 272px;
+  max-height: 264px;
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(16, 24, 40, .16);
+  padding: 6px;
+  z-index: 40;
+  display: none;
+}
+
+.pop.on { display: block; }
+
+.pop .row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 7px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.pop .row:hover { background: var(--track); }
+.pop .row.total { color: var(--muted); justify-content: flex-start; }
+.pop .dim { color: var(--faint); }
+
+/* 切号提示条 */
+.toast {
+  position: fixed;
+  left: 50%;
+  top: 62px;
+  transform: translate(-50%, -6px);
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 28px rgba(16, 24, 40, .16);
+  font-size: 12px;
+  color: var(--text);
+  z-index: 50;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s, transform .25s;
+}
+
+.toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+[data-theme="dark"] .pop,
+[data-theme="dark"] .toast { box-shadow: 0 10px 28px rgba(0, 0, 0, .55); }
+
+
+.icon {
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.icon:hover { color: var(--text); }
+
+/* ---------- 卡片 ---------- */
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 14px;
+  box-shadow: var(--shadow);
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.cap {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: .3px;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: visible;        /* 状态标签由内部 ellipsis 收敛，不再整行裁字 */
+}
+
+.hint {
+  font-weight: 400;
+  color: var(--faint);
+  font-size: 11px;
+  letter-spacing: 0;
+  margin-left: auto;          /* 靠右，避免和标题挤在一起换行 */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hint b { color: var(--muted); font-weight: 600; }
+
+.tag {
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-size: 10.5px;
+  font-weight: 500;
+  background: var(--track);
+  color: var(--muted);
+  letter-spacing: 0;
+}
+
+.tag.warn { background: rgba(199, 119, 0, .12); color: var(--warn); }
+
+/* 会话状态灯：绿=活跃、黄=空闲、灰=已结束 */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  padding: 2px 8px 2px 7px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  letter-spacing: 0;
+}
+.status::before {
+  content: "";
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.status.on { background: rgba(15, 157, 88, .13); color: var(--ok); }
+.status.on::before { animation: pulse 1.8s infinite; }
+.status.idle { background: rgba(199, 119, 0, .13); color: var(--warn); }
+.status.off { background: var(--track); color: var(--faint); }
+
+/* 卡片标题里的会话名：正常字色、长了就省略，不挤掉右侧标签 */
+.sessname {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 400;
+  font-size: 11.5px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- KPI ---------- */
+.kpis {
+  display: grid;
+  grid-template-columns: minmax(0,1.15fr) minmax(0,1.35fr) minmax(0,1fr) minmax(0,1fr);
+  gap: 10px;
+  min-height: 0;
+  min-width: 0;   /* 网格项的 min-width 默认是 auto，会被内容撑破容器 */
+}
+
+.kpi { display: flex; flex-direction: column; }
+
+.num {
+  font-size: 31px;
+  font-weight: 660;
+  letter-spacing: -.8px;
+  line-height: 1.12;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.num small {
+  font-size: 14px;
+  font-weight: 550;
+  letter-spacing: 0;
+  color: var(--muted);
+  margin-left: 3px;
+}
+
+.sub {
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.4;
+  /* 允许换行并最多显示两行：单行省略会把内容吃掉 */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  white-space: normal;
+  overflow: hidden;
+  word-break: break-all;
+}
+
+.sub b { color: var(--text); font-weight: 600; }
+.sub .up { color: var(--warn); font-weight: 600; }
+.sub .ok { color: var(--ok); font-weight: 600; }
+.sub .dim { color: var(--faint); }
+
+.spark { display: none; }   /* 最近一分钟走势曲线已取消 */
+
+.mini {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 20px;
+  margin-top: auto;
+}
+
+.mini i {
+  flex: 1;
+  min-height: 2px;
+  background: var(--accent-soft);
+  border-radius: 2px 2px 0 0;
+  transition: height .45s ease;
+}
+
+.mini i.hot { background: var(--accent-2); }
+
+/* ---------- 图表 ---------- */
+.mid {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0,1.42fr) minmax(0,1fr);
+  gap: 10px;
+  min-height: 0;
+}
+
+/* 趋势与热力图并排：面积各减一半，但高度保留，标签不会被压扁 */
+.pair {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+  gap: 10px;
+  min-height: 0;
+}
+
+/* 项目 TOP5 + 会话 TOP5 */
+.duo {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+  gap: 10px;
+  min-height: 0;
+}
+
+/* 图表用绝对定位填满卡片剩余区域：
+   flex 高度在 ECharts 初始化时可能还没稳定，会导致画布偏小、下方留白 */
+.chart {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 32px;
+  bottom: 8px;
+}
+
+/* 会话排行：旧列表样式（现已改用 #chartSess 柱状图，复用 .chart），保留以便回退 */
+.sesslist {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 29px;
+  bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.sessrow {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sessrow .rk {
+  font-size: 10.5px;
+  color: var(--faint);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.sessrow .tt {
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.sessrow .tt i {
+  font-style: normal;
+  color: var(--faint);
+  font-size: 10.5px;
+  margin-left: 6px;
+}
+
+.sessrow .tv {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sessrow.top .tt { font-weight: 600; }
+
+/* ---------- 页脚 ---------- */
+.foot {
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--faint);
+  font-size: 11px;
+}
+
+/* ---------- 窄屏降级 ---------- */
+@media (max-width: 1100px) {
+  body { overflow: auto; }
+  .app {
+    height: auto;
+    grid-template-rows: auto;
+  }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mid, .duo, .pair { grid-template-columns: minmax(0, 1fr); }
+  .chart { position: static; height: 240px; }
+  .sesslist { position: static; min-height: 170px; }
+  .kpi .mini { margin-top: 8px; }
+}
+
+/* ---------- 手机 ---------- */
+@media (max-width: 720px) {
+  html, body {
+    height: auto;
+    -webkit-text-size-adjust: 100%;   /* 横屏时别自动放大字号 */
+  }
+  body { overflow: auto; overflow-x: hidden; }
+
+  .app {
+    height: auto;
+    grid-template-rows: auto;
+    gap: 8px;
+    padding: 8px 8px 14px;
+  }
+
+  /* 顶栏拆两行：第一行品牌+状态，第二行占满宽度的分段控件 */
+  .bar {
+    flex-wrap: wrap;
+    gap: 6px;
+    row-gap: 8px;
+    padding: 0 2px;
+  }
+  .brand { font-size: 13.5px; gap: 6px; }
+  .meta { order: 3; width: 100%; margin-left: 0; gap: 6px; flex-wrap: wrap; }
+  .actions { order: 2; margin-left: auto; gap: 6px; }
+  .chip { font-size: 10.5px; padding: 2px 7px; }
+  .live { font-size: 10.5px; padding: 2px 8px 2px 7px; }
+
+  /* 触摸目标放大：手指点 26px 高的按钮太容易点错 */
+  .seg { padding: 3px; border-radius: 9px; }
+  .seg button {
+    font-size: 12px;
+    padding: 7px 13px;
+    border-radius: 7px;
+    touch-action: manipulation;
+  }
+  .icon {
+    width: 36px; height: 36px;
+    font-size: 15px;
+    touch-action: manipulation;
+  }
+
+  .kpis { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .card { padding: 9px 11px; border-radius: 10px; overflow: visible; }
+  .cap { font-size: 11px; margin-bottom: 4px; gap: 5px; }
+  .num { font-size: 23px; letter-spacing: -.5px; }
+  .num small { font-size: 12px; }
+  .sub { font-size: 10.5px; line-height: 1.35; margin-top: 3px; }
+  .tag { font-size: 9.5px; padding: 0 5px; }
+
+  .mid, .duo, .pair { grid-template-columns: 1fr; gap: 8px; }
+  /* flex:none 很关键：否则图表会被压缩，画布比卡片高，坐标轴标签溢出卡片 */
+  .chart { position: static; height: 200px; flex: none; }
+  .sesslist { position: static; min-height: 148px; gap: 0; }
+  .sessrow .tt { font-size: 11.5px; }
+  .sessrow .tv { font-size: 11.5px; }
+
+  .kpi .mini { height: 16px; margin-top: 6px; }
+
+  .foot { font-size: 10px; padding: 8px; }
+}
+
+/* ---------- 窄屏手机 ---------- */
+@media (max-width: 430px) {
+  #indexInfo { display: none; }   /* 空间不够时先让位给核心信息 */
+  .num { font-size: 21px; }
+  .chart { height: 172px; }
+  .sesslist { min-height: 136px; }
+
+  /* 顶栏挤在 360px 里：缩小控件而不是让它溢出 */
+  .brand { font-size: 12.5px; }
+  .seg button { padding: 6px 9px; font-size: 11.5px; }
+  .icon { width: 32px; height: 32px; font-size: 14px; }
+}
+
+/* 账号控件在窄屏的降级：顶栏本来就换行，这里只让它内部再折一次 */
+@media (max-width: 720px) {
+  .actions { width: 100%; flex-wrap: wrap; justify-content: flex-end; }
+  /* 关键：分段控件默认会被 flex 压扁，但里面的按钮不收缩 → 整块溢出被裁掉。
+     拒绝压缩让它换行，顶栏才会多一行而不是被切掉。 */
+  .actions > .seg { flex: 0 0 auto; }
+  .actions > .chip { flex: 0 0 auto; }
+  #segAcct {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+  #segAcct::-webkit-scrollbar { display: none; }
+  .seg.acct button { max-width: 120px; font-size: 11px; padding: 4px 8px; }
+  .pop { width: min(88vw, 272px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse { animation: none; }
+  .mini i { transition: none; }
+}

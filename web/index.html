@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html data-page-node-id="ElPE8vkwOxV91yygUmPOlz" data-theme="light" lang="zh-CN">
+<head data-page-node-id="aBSrXqnkl950rb5DG4PedK">
+<script data-page-node-id="nbrPL8wQvSfCqTeK7c1KJD" src="/page/page_comm/inject.js"></script>
+<meta data-page-node-id="Q3UPGTVGX4L30m4nyZJYX9" charset="utf-8">
+<meta data-page-node-id="0mCNsDB93gIlW1T71VCDzq" content="width=device-width, initial-scale=1" name="viewport">
+<title data-page-node-id="wKX8n590UyiOM7j4nWa4Xb" data-pnid-children="eZ5tibtmN6Sx68GwZSZEoa">WorkBuddy Token 用量</title>
+<link data-page-node-id="USGaXzkDcOCJrnbzzd9coQ" href="/static/style.css?v=22" rel="stylesheet">
+<script data-page-node-id="QZg6YoQnWku2DHxEOPPhWu" data-pnid-children="q5DEbtNBwKUuuHGcTCCYgk">
+  try {
+    var forced = new URLSearchParams(location.search).get('theme');
+    var saved = localStorage.getItem('tp-theme');
+    var sys = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    document.documentElement.dataset.theme = forced || saved || sys;
+  } catch (e) {}
+</script>
+</head>
+<body data-page-node-id="Pajs4NfKRAtF1ba89h9Y9A">
+<div data-page-node-id="GwGQkafrptjdJumj1HIfFr" class="app">
+
+  <header data-page-node-id="WsxJdLjroYg8jdenn0lM9M" class="bar">
+    <div data-page-node-id="0sp0f7wW8GHyZ58in9Ng5N" class="brand"><span data-page-node-id="9PMowniV9QJYgB6n0AX5nn" class="pulse"></span><!--pnid:y81Hl6ju0dGB0JiQjRJDg0-->WorkBuddy Token</div>
+    <div data-page-node-id="BEmwBN4POoWdYrTecYnjdi" class="meta">
+      <span data-page-node-id="2git1mfQ7JiAXBXDqR0ZS9" class="live" id="live"><!--pnid:kZyeDmkYRqWd3OkZ6wk3ft-->连接中…</span>
+      <span data-page-node-id="0cvuH9epDlEwMbXlnN8XIh" class="chip" id="indexInfo"><!--pnid:tBkDo1tNlDwt52WI7hohoJ-->索引 —</span>
+      <span data-page-node-id="jqgXvk97ue709AIbzdZLit" class="chip" id="clock"><!--pnid:pyrI9J2UCKHxbqlj0BFbiY-->—</span>
+    </div>
+    <div data-page-node-id="yU1gHXcb4CQ46DPkk040Og" class="actions">
+      <span data-page-node-id="DeNbjvAQ0XNvidGKulAPDK" class="chip acct off" id="acctChip" title="未识别到当前账号"><!--pnid:uvhJrAnGvNzuh0iyMpfDbj-->账号 —</span>
+      <div data-page-node-id="QgbVM7yVaFY45UjxoYLWoa" class="seg acct" id="segAcct" style="display:none"></div>
+      <div data-page-node-id="OWqpwD9dWaSdJ1DRFhYF6l" class="seg" id="segBreak">
+        <button data-page-node-id="NsJ2SGqPLcivIH0hsvQDMS" class="on" data-v="model"><!--pnid:sWO7ie5UCAuZEJfRxKQ2it-->模型</button>
+        <button data-page-node-id="AxhvCVlJEfukvjXooe1w1U" data-v="project"><!--pnid:8G2lq92tDPtbq8XAEwNbo1-->项目</button>
+        <button data-page-node-id="2Iu606MKvBCflVWzGMAGDT" data-v="account"><!--pnid:aJhugSiXjEIpLl0rE0r6aX-->账号</button>
+      </div>
+      <div data-page-node-id="yPa1ZEnkHRcChppilEyJ4t" class="seg" id="segRange">
+        <button data-page-node-id="Xq2ok4bjKp1ZmCHRzDfw4Q" class="on" data-v="today"><!--pnid:nUTxjugpR0VTm6fjbXmVqw-->今天</button>
+        <button data-page-node-id="cIrx6XT6L4MNEEvYrZHNUD" data-v="yesterday"><!--pnid:8ukkNubnru00qTAKWGkyi1-->昨天</button>
+        <button data-page-node-id="xifMUjo8F78P3UnbJm8BRT" data-v="before"><!--pnid:IQ6neZ6GbS0FQQm0hpbNhk-->前天</button>
+        <button data-page-node-id="todKlNRmg9C2h8bdlAoaa4" data-v="7d"><!--pnid:n9R7Qs6PvoujwoKxYAPTSe-->7 天</button>
+        <button data-page-node-id="4gjIKXJL1Cz5h9UpIbMGrg" data-v="30d"><!--pnid:ptU18ZTsSxBjeaSTXcpOfj-->30 天</button>
+      </div>
+      <button data-page-node-id="OXFOE1SDHCJOfazYeQ8pOY" class="chip btn" id="acctLogBtn" title="账号切换时间线"><!--pnid:ggSuRRssve29958XpJmtZ3-->⇄</button>
+      <button data-page-node-id="Kdn7eh9WMDYoEV8Ph3osmX" class="icon" id="themeBtn" title="切换明暗"><!--pnid:oQROdWCi9pwHUWH6p560YF-->◐</button>
+      <div data-page-node-id="U53y0DPTIwkd94wGu0IpJ5" class="pop" id="acctLogPop"></div>
+    </div>
+  </header>
+
+  <section data-page-node-id="nRZJACeJYmZ4EOyFErQU5I" class="kpis">
+    <article data-page-node-id="UNqjdZ5FAeF5eBQykPzA5y" class="card kpi">
+      <div data-page-node-id="tWayCcawJUBB7mv6C2NiBO" class="cap"><span data-page-node-id="r2tpI4nMo3E7fxlmPUxwAe" id="sessCap"><!--pnid:68OY9bHbk0ggh3D9UrMjDU-->活跃会话</span><span data-page-node-id="gzZxVXaTM3EeTCETNwU6JU" class="sessname" id="sessName"></span><span data-page-node-id="J17pnrZFgBtH5BDahBkfAZ" class="status" id="sessTag"></span></div>
+      <div data-page-node-id="4qbn50TkZaL7ihNtaRPMJP" class="num" data-num="0" id="kSession"><!--pnid:3CcNIjU0nQyb01BEdLGUbL-->—</div>
+      <div data-page-node-id="b9f51Sx6qpzFtWbG3275n8" class="sub" id="kSessionSub"><!--pnid:1if0KkdnrHL4Se6bQFxKqE-->—</div>
+      <canvas data-page-node-id="olfaA28tES59upHsNwLivV" class="spark" hidden id="spark"></canvas>
+    </article>
+
+    <article data-page-node-id="d7L8NOIvaOJfi5v6VLdvXt" class="card kpi">
+      <div data-page-node-id="doalRWLjHXBUliD7Mp5ned" class="cap"><span data-page-node-id="vZ3WZrQWMtyaqM5AsQYAZD" id="rangeCap"><!--pnid:5CEc966NbzfmISB1ggFbgL-->区间累计</span><span data-page-node-id="2cmyTX9KXNj7IFBDFNglP8" class="tag" id="rangeTag"></span></div>
+      <div data-page-node-id="a9Xu209EgNarBU3WroHqfY" class="num" data-num="0" id="kRange"><!--pnid:oYR9E956mqrahAa4MCpqVq-->—</div>
+      <div data-page-node-id="6U1o06LShUfMtJ65FKbU5W" class="sub" id="kRangeSub"><!--pnid:4e89YrsLlw3gKCTutkKfCp-->—</div>
+      <div data-page-node-id="Oe6acH0zzmkmIekkwUO33P" class="mini" id="todayMini"></div>
+    </article>
+
+    <article data-page-node-id="QkRQ49G35hv32w04lJYHrA" class="card kpi">
+      <div data-page-node-id="pCfbge6LPkrTS3RHlryH0z" class="cap"><span data-page-node-id="9IwJ5p9WzbQVmcbzq7g8wJ" id="avgCap"><!--pnid:awxWl2uAWllNoLqKd2C4ZE-->区间日均</span></div>
+      <div data-page-node-id="bRlRCyLd6PFZ2eWw8usE28" class="num" data-num="0" id="kAvg"><!--pnid:CDrbekZmRGvkCJHaTDdGHi-->—</div>
+      <div data-page-node-id="KDatj3VePGS1rhZ0o8MypD" class="sub" id="kAvgSub"><!--pnid:hZp4SA2ZqE2BqTp0XOal29-->—</div>
+    </article>
+
+    <article data-page-node-id="Z5LwutJNdP40hryqUp49zr" class="card kpi">
+      <div data-page-node-id="s6uESafjYB8yRiSo6Dn27C" class="cap"><!--pnid:znZjackKE3hyoqoHIU2lRm-->缓存命中率<span data-page-node-id="ZAFDvh7pGV9o3qJFaOmbdX" class="tag" id="cacheTag"></span></div>
+      <div data-page-node-id="8KWrDPslTbVSOO4Blqva6V" class="num" data-num="0" id="kCache"><!--pnid:4qje8gpFRnonQfhYAhpnyG-->—</div>
+      <div data-page-node-id="q9Gd7ILbVazJjxNJuw5Nop" class="sub" id="kCacheSub"><!--pnid:LChIzG8kRZYPTAZVDgSX4y-->—</div>
+    </article>
+  </section>
+
+  <section data-page-node-id="Yl52s5lnN7mkzzaSdVW6AZ" class="mid">
+    <article data-page-node-id="mcAN6tmheBG4obTcS1OByu" class="card">
+      <div data-page-node-id="OVnbyhOcpPmhyBEoyiXIlI" class="cap"><span data-page-node-id="Xr0U9GjEm6LdmyOIZSixpl" id="hourCap"><!--pnid:cxk7TIEwNHqD0w6U2KBMzI-->按小时</span><span data-page-node-id="uCul0Yp3KFLmUDsWY3Q7ih" class="hint" id="hourHint"></span></div>
+      <div data-page-node-id="SMuyTR0vpfnbjCIsgFqPT5" class="chart" id="chartHour"></div>
+    </article>
+    <article data-page-node-id="rJyzX2HmtYSDxkHKAWkiTg" class="card">
+      <div data-page-node-id="oMCREmZfElSOTzng1MkWza" class="cap" id="pieCap"><!--pnid:YO0by7YsX47XMKWwqggjMn-->模型占比</div>
+      <div data-page-node-id="8Lty8O7iFU4cb1Tqr5ja8f" class="chart" id="chartPie"></div>
+    </article>
+  </section>
+
+  <section data-page-node-id="UBTGLBRGHtaJORuYAAVZTv" class="duo">
+    <article data-page-node-id="Vu6O9sfbtM97iwFV71axje" class="card">
+      <div data-page-node-id="MooO2T3XgEHrWwv1kE7RkT" class="cap"><span data-page-node-id="RB7A9DtJ97A6H87xHjqnCC" id="projCap"><!--pnid:R8oPB6KFMq9aJI3r6j6wmk-->项目消耗 TOP 5</span><span data-page-node-id="T2aQ54WExZqOdX6oS41xQ4" class="hint" id="projHint"><!--pnid:VOCqUm94PuVOO1msjpNODz-->今日</span></div>
+      <div data-page-node-id="YsfH5aK0i8kkIiwikA1SlM" class="chart" id="chartProj"></div>
+    </article>
+    <article data-page-node-id="PdeTPTlReJJ7nElAlg2CWS" class="card">
+      <div data-page-node-id="OzXEaL4XfWsxEkEKMvcdqY" class="cap"><span data-page-node-id="udWtNEdI4KMX5G553yuu1I"><!--pnid:H5YIz7tEccrL0FDg9GsjDp-->会话消耗 TOP 5</span><span data-page-node-id="VQQmHriQBbxE4g0aLsNIaC" class="hint" id="sessHint"><!--pnid:eAR53LAXwdgTzH0fj9mBDJ-->今日</span></div>
+      <div data-page-node-id="WBGmEGZUNbRlOgGexPcJC5" class="chart" id="chartSess"></div>
+    </article>
+  </section>
+
+  <section data-page-node-id="ac5CbW3kfHqNnajYT595Kj" class="pair">
+    <article data-page-node-id="Gb0kx3baMTQcMTtpMrlHZx" class="card">
+      <div data-page-node-id="Bb4BmVcR2VwpCPCn8hKDf7" class="cap"><span data-page-node-id="1Z1gT39rChr1peAk9gChJH"><!--pnid:ua4CR22qQYDgtoLvHWqwIp-->每日趋势</span><span data-page-node-id="2L1Grpwigtnm7D8dLOkGJ1" class="hint" id="trendHint"></span><div data-page-node-id="agkE4KQnFOmZA438q5e7bl" class="seg mini" id="segDays"><button data-page-node-id="rsfkPjyPdMQY5bExEokFnc" class="on" data-v="30"><!--pnid:0wpHnPaYja1cPKSggDK3zs-->30</button><button data-page-node-id="KJ5gLXPKNyZboLjrwPG7Tm" data-v="90"><!--pnid:kcGkzXCgw0Ed7po2TREizU-->90</button></div></div>
+      <div data-page-node-id="1kdlghuvaAvkzDfkXFATrt" class="chart" id="chartTrend"></div>
+    </article>
+    <article data-page-node-id="J9JBSNsU1MtjhQE8Pzh4JY" class="card">
+      <div data-page-node-id="gWveXnk9tXwxzVgeC2VMsi" class="cap"><!--pnid:dSuI9J94OosLkkWO5O5Ufp-->52 周热力图<span data-page-node-id="Cjm4OuJ2Kg2dVvdE18gsek" class="hint"><!--pnid:KrGOpPW3uQi1EkEuUi2qv7-->越深越多</span></div>
+      <div data-page-node-id="DTQWn6o5E4exjeoV8y4sQe" class="chart" id="chartHeat"></div>
+    </article>
+  </section>
+
+</div>
+
+<footer data-page-node-id="0f4HUToawqEv8YN0wv2SPR" class="foot" id="foot"><!--pnid:93PVD6cSnLDbZueSB6ZoBY-->数据来自本机 ~/.workbuddy 转录，纯本地，不上传</footer>
+<div data-page-node-id="Dffa0hSZ2oyVVj8ZhndKbJ" class="toast" id="acctToast"></div>
+
+<script data-page-node-id="Ezo3RFNuDKYKBbHdHgQiOW" data-pnid-children="KM7Uwj7JwbkU1NbqYI26ZC" id="boot-data" type="application/json">__BOOT__</script>
+<script data-page-node-id="3eVPGjakxbFESQsAauC2ai" src="/static/vendor/echarts.min.js"></script>
+<script data-page-node-id="LEGOapUzvXjrfSIJDgnQ2T" src="/static/app.js?v=23"></script>
+</body>
+</html>
