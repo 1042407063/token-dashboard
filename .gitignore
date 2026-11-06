@@ -1,0 +1,12 @@
+node_modules/
+.venv/
+__pycache__/
+dist/
+build/
+.env
+.env.*
+!.env.example
+*.log
+Thumbs.db
+.DS_Store
+.workbuddy/settings.local.json
