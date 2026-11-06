@@ -8,7 +8,7 @@ D:\dev\myproj\Token看板
 
 ## 仓库
 
-git@github.com:1042407063/token-dashboard.git（Private）
+git@github.com:1042407063/token-dashboard.git
 
 注意地址里用的是 GitHub 用户名 `1042407063`，不是显示名 `yyf`。
 
