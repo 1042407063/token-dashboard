@@ -51,6 +51,47 @@ def _local(ts):
         return None, None
 
 
+# 已知结构是 {"<conv_req>": 3.46}。但如果某天 WorkBuddy 把它改成
+# {"<conv_req>": {"credit": 3.46}}，原来的 float(v) 会抛 TypeError 被
+# 静默 continue 掉 —— 表现就是"积分凭空少了一大截"，而且毫无报错。
+# 这里对一层包装做兼容，取不到再往下摊，绝不猜。
+_CREDIT_KEYS = ("credit", "credits", "value", "amount", "cost", "total")
+
+
+def _flatten_credits(obj, depth=0):
+    """credit_json -> [(请求 id, 积分数)]，非数字一律丢弃。"""
+    out = []
+    if not isinstance(obj, dict) or depth > 2:
+        return out
+    for k, v in obj.items():
+        if isinstance(v, bool):
+            continue
+        if isinstance(v, (int, float)):
+            out.append((k, float(v)))
+            continue
+        if isinstance(v, str):
+            try:
+                out.append((k, float(v)))
+            except ValueError:
+                pass
+            continue
+        if isinstance(v, dict):
+            got = None
+            for name in _CREDIT_KEYS:
+                cand = v.get(name)
+                if isinstance(cand, (int, float, str)) and not isinstance(cand, bool):
+                    try:
+                        got = float(cand)
+                        break
+                    except (TypeError, ValueError):
+                        got = None
+            if got is None:
+                out.extend(_flatten_credits(v, depth + 1))
+            else:
+                out.append((k, got))
+    return out
+
+
 # 聚合指纹：一条 SQL 覆盖"行数变 / 更新时间变 / credit_json 变长变短 / used、size 变"
 # 53 行全在内存页里，耗时约 1-2ms
 _PROBE_SQL = (
@@ -150,19 +191,18 @@ def run_once(store, force=False):
                     d = json.loads(cj) or {}
                 except ValueError:
                     d = {}
-            for k, v in d.items():
-                try:
-                    v = float(v)
-                except (TypeError, ValueError):
-                    continue
+                    log.debug("credit_json 解析失败：%s", sid)
+            for k, v in _flatten_credits(d):
                 key = str(k).replace("-", "").lower()
                 credits.append({"key": key, "value": v, "db_session": sid,
                                 "upd": upd})
             metas.append({"session_id": sid, "used": used, "size": size, "upd": upd})
 
+        # 刻意不带 deleted_at 过滤：软删会话的标题对历史复盘仍然有意义，
+        # 过滤掉只会让这些会话在看板上退化成八位十六进制短码。
         for row in conn.execute(
                 "SELECT id, cwd, COALESCE(NULLIF(custom_title,''), title), model, "
-                "last_activity_at, updated_at FROM sessions WHERE deleted_at IS NULL"):
+                "last_activity_at, updated_at FROM sessions"):
             sessions[row[0]] = {"cwd": row[1], "title": row[2], "model": row[3],
                                 "last": row[4] or row[5]}
 

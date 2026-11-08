@@ -141,10 +141,30 @@ const RANGE_LABEL = {
 
 /* 积分量级差很多：单日十几分，30 天八千多，按量级选精度 */
 function fmtCredit(n) {
+  // null / undefined = 这条维度没有积分记录，和"积分是 0"完全不是一件事，
+  // 早先统一显示 0.00，结果每个免费模型的会话都像在烧积分，越看越不对
+  if (n === null || n === undefined || n === '' || Number.isNaN(Number(n))) return '—';
   n = Number(n) || 0;
   if (n >= 1000) return Math.round(n).toLocaleString('zh-CN');
   if (n >= 10) return n.toFixed(1);
   return n.toFixed(2);
+}
+
+/* 有积分记录的轮数 / 总轮数。分母是轮数，不是事件数 */
+function covText(covered, total) {
+  covered = covered || 0;
+  total = total || 0;
+  if (!total) return '';
+  if (!covered) return '无积分记录';
+  return covered >= total ? '全轮有记录' : `${covered}/${total} 轮有记录`;
+}
+
+/* 一行两段的统一写法：「积分 3.46 · 1/2 轮有记录」 */
+function creditLine(item, turns) {
+  const t = turns == null ? item.turns : turns;
+  const cov = covText(item.credit_reqs, t);
+  return `积分 <b>${fmtCredit((item.credit_reqs || 0) > 0 ? item.credit : null)}</b>` +
+    (cov ? `<span class="dim"> · ${cov}</span>` : '');
 }
 
 function renderKpis() {
@@ -167,11 +187,15 @@ function renderKpis() {
     card = {
       label: '活跃会话',
       name: ss.title || ss.project || '当前会话',
+      model: ss.model || '',
       primary: ss.tokens_today || 0,
       credit: ss.credit_today || 0,
+      credit_reqs: ss.credit_reqs_today || 0,
       turns: ss.turns_today || 0,
       totalTokens: ss.tokens || 0,
       totalCredit: ss.credit_total || 0,
+      totalCreditReqs: ss.credit_reqs_total || 0,
+      totalTurns: ss.turns || 0,
       live: true,
     };
   } else if ((p.top_sessions || []).length) {
@@ -179,11 +203,15 @@ function renderKpis() {
     card = {
       label: '区间最贵会话',
       name: t0.title || '未命名会话',
+      model: t0.model || '',
       primary: t0.tokens || 0,
       credit: t0.credit || 0,
+      credit_reqs: t0.credit_reqs || 0,
       turns: t0.turns || 0,
       totalTokens: t0.total_tokens || 0,
       totalCredit: t0.total_credit || 0,
+      totalCreditReqs: 0,
+      totalTurns: 0,
       live: false,
     };
   }
@@ -192,9 +220,13 @@ function renderKpis() {
     tween($('kSession'), card.primary);
     $('sessCap').textContent = card.label;
     $('sessName').textContent = card.name;
+    // 模型名放到第二行：标题行已经够挤了，塞个 chip 会把会话名压成省略号
     $('kSessionSub').innerHTML =
-      `${isToday ? '今日' : '区间'}积分 <b>${fmtCredit(card.credit)}</b> · ${card.turns} 轮<br>` +
-      `<span class="dim">该会话累计 ${fmtShort(card.totalTokens)} · 积分 ${fmtCredit(card.totalCredit)}</span>`;
+      `${isToday ? '今日' : '区间'}${creditLine(card, card.turns)}<br>` +
+      `<span class="dim">${card.model ? escapeHtml(card.model) + ' · ' : ''}累计 ` +
+      `${fmtShort(card.totalTokens)} · 积分 ` +
+      `${fmtCredit(card.totalCreditReqs ? card.totalCredit : (card.totalCredit || null))}` +
+      (card.totalTurns ? ` · 共 ${card.totalTurns} 轮` : '') + `</span>`;
   } else {
     $('sessCap').textContent = '活跃会话';
     $('sessName').textContent = '';
@@ -213,24 +245,27 @@ function renderKpis() {
   $('rangeCap').textContent = label + '累计';
   $('rangeTag').textContent = p.days > 1 ? `${p.days} 天` : '';
   $('kRangeSub').innerHTML =
-    `积分 <b>${fmtCredit(p.credit)}</b><br>` +
+    creditLine(p) + `<br>` +
     `<span class="dim">${(p.start || '').slice(5)} ~ ${(p.end || '').slice(5)} · ${p.turns} 轮</span>`;
 
   // ③ 多日看日均；单日看轮均（一天算"日均"等于累计，没信息量）
+  //    分母刻意用"有积分记录的天/轮"：没记录的轮次不是花了 0 分，是不知道
   const days = Math.max(1, p.days || 1);
   const turns = Math.max(1, p.turns || 0);
+  const crDays = p.credit_days || 0;
+  const crReqs = p.credit_reqs || 0;
   if (days > 1) {
     tween($('kAvg'), p.tokens / days);
     $('avgCap').textContent = '区间日均';
     $('kAvgSub').innerHTML =
-      `日均积分 <b>${fmtCredit(p.credit / days)}</b><br>` +
-      `<span class="dim">${days} 天 · 缓存 ${fmtShort(p.cache_read)}</span>`;
+      `日均积分 <b>${fmtCredit(crDays ? p.credit / crDays : null)}</b><br>` +
+      `<span class="dim">${days} 天 · ${crDays} 天有积分记录 · 缓存 ${fmtShort(p.cache_read)}</span>`;
   } else {
     tween($('kAvg'), p.tokens / turns);
     $('avgCap').textContent = '轮均消耗';
     $('kAvgSub').innerHTML =
-      `轮均积分 <b>${fmtCredit(p.credit / turns)}</b><br>` +
-      `<span class="dim">${p.turns} 轮 · 缓存 ${fmtShort(p.cache_read)}</span>`;
+      `轮均积分 <b>${fmtCredit(crReqs ? p.credit / crReqs : null)}</b><br>` +
+      `<span class="dim">${p.turns} 轮 · ${crReqs} 轮有积分记录 · 缓存 ${fmtShort(p.cache_read)}</span>`;
   }
 
   // ④ 缓存命中率（跟随区间）
@@ -238,19 +273,31 @@ function renderKpis() {
   $('cacheTag').textContent = label;
 
   const c = s.credit || {};
-  let creditTxt = 'credit —';
+  let creditTxt = '积分 —';
   if (c.available) {
+    // 覆盖率的分母是"请求轮数"，不是积分行数 —— 前者才是用户能感知的缺口
     creditTxt = c.mode === 'jsonl_partial'
-      ? `credit ${fmtShort(c.jsonl_total)}（仅团队调用）`
-      : `credit ${fmtCredit(c.total)}${c.mapped_ratio != null ? ' · 覆盖 ' + c.mapped_ratio + '%' : ''}`;
+      ? `积分 ${fmtShort(c.jsonl_total)}（仅团队调用）`
+      : `全历史积分 ${fmtCredit(c.total)}` +
+        (c.coverage != null ? ` · 覆盖 ${c.coverage}%（${c.reqs_covered}/${c.reqs} 轮）` : '');
   }
   $('kCacheSub').innerHTML =
     `缓存 ${fmtShort(p.cache_read)} / 输入 ${fmtShort(p.input)}<br><span class="dim">${creditTxt}</span>`;
+  // 覆盖率的成因放在悬停里：一个字都不多占，但想深究时能立刻看到
+  const kc = $('kCacheSub');
+  if (kc) {
+    kc.title = c.available && c.sessions_without_credit
+      ? `${c.sessions_without_credit} 个会话在 workbuddy.db 里没有用量记录，`
+        + `这些轮次拿不到积分数据（不是 0 分，是不知道）`
+      : '';
+  }
 
   renderIndexInfo();
+  const cr0 = s.credit || {};
   $('foot').textContent =
-    `累计 ${fmtFull(s.all_time.tokens)} tokens · ${fmtFull(s.all_time.turns)} 轮 · ` +
-    `${s.all_time.days} 天 · 纯本地处理，不上传`;
+    `累计 ${fmtFull(s.all_time.tokens)} tokens · 积分 ${fmtCredit(cr0.available ? cr0.total : null)}` +
+    (cr0.available && cr0.coverage != null ? `（覆盖 ${cr0.coverage}%）` : '') +
+    ` · ${fmtFull(s.all_time.turns)} 轮 · ${s.all_time.days} 天 · 纯本地处理，不上传`;
 
   // 迷你柱：跟随区间；只有"今天"才高亮当前小时
   drawMini(p.hours, state.range === 'today' && t ? t.now_hour : null);
@@ -323,13 +370,15 @@ function initCharts() {
   charts.hour = echarts.init($('chartHour'), null, { renderer: 'canvas' });
   charts.pie = echarts.init($('chartPie'), null, { renderer: 'canvas' });
   charts.proj = echarts.init($('chartProj'), null, { renderer: 'canvas' });
-  charts.sess = echarts.init($('chartSess'), null, { renderer: 'canvas' });
   charts.trend = echarts.init($('chartTrend'), null, { renderer: 'canvas' });
   charts.heat = echarts.init($('chartHeat'), null, { renderer: 'canvas' });
   const ro = new ResizeObserver(debounce(() => {
     Object.values(charts).forEach(c => c && c.resize());
+    syncRankMode();               // 卡片变高/变矮时切换单行/两行排版
   }, 150));
   document.querySelectorAll('.chart').forEach(el => ro.observe(el));
+  const rk = $('sessRank');
+  if (rk) ro.observe(rk);          // 排行是 HTML，不归 ECharts 管，自己盯高度
 }
 
 function renderHour() {
@@ -352,8 +401,11 @@ function renderHour() {
       backgroundColor: v('--panel'), borderColor: v('--border'), textStyle: { color: text, fontSize: 12 },
       formatter: (ps) => {
         const h = ps[0].axisValue;
+        const i = ps[0].dataIndex;
         const cur = ps.find(x => x.seriesName === label);
-        return `<b>${h}</b><br>${label} ${fmtFull(cur ? cur.value : 0)}`;
+        const cr = (p.credit_hours || [])[i] || 0;
+        return `<b>${h}</b><br>${label} ${fmtFull(cur ? cur.value : 0)} tokens` +
+          `<br><span style="opacity:.65">积分 ${fmtCredit(cr || null)}</span>`;
       },
     },
     xAxis: {
@@ -387,7 +439,8 @@ function renderHour() {
 
   $('hourCap').textContent = single ? `${label}按小时` : `${label}各小时合计`;
   $('hourHint').innerHTML = peak != null && hours[peak]
-    ? `峰值 <b>${peak} 时</b> · ${fmtShort(hours[peak])}`
+    ? `峰值 <b>${peak} 时</b> · ${fmtShort(hours[peak])} · 积分 ` +
+      `${fmtCredit((p.credit_hours || [])[peak] || null)}`
     : '';
 }
 
@@ -402,11 +455,20 @@ function renderPie() {
   const byChanged = state._pieBy !== state.by;
   state._pieBy = state.by;
 
-  const top = items.slice(0, 6).map(x => ({ name: x.label || x.name, value: x.tokens }));
+  const top = items.slice(0, 6).map(x => ({
+    name: x.label || x.name, value: x.tokens,
+    credit: x.credit || 0, credit_reqs: x.credit_reqs || 0, turns: x.turns || 0,
+  }));
   if (items.length > 6) {
-    top.push({ name: '其他', value: items.slice(6).reduce((a, b) => a + b.tokens, 0) });
+    const rest = items.slice(6);
+    const sum = (k) => rest.reduce((a, b) => a + (b[k] || 0), 0);
+    top.push({ name: '其他', value: sum('tokens'), credit: sum('credit'),
+               credit_reqs: sum('credit_reqs'), turns: sum('turns') });
   }
   const total = top.reduce((a, b) => a + b.value, 0) || 1;
+  const sumCredit = items.reduce((a, b) => a + (b.credit || 0), 0);
+  const sumCrq = items.reduce((a, b) => a + (b.credit_reqs || 0), 0);
+  const sumTurns = items.reduce((a, b) => a + (b.turns || 0), 0);
   const palette = [accent, v('--accent-2'), '#7c6cf0', '#e0774f', '#3ea88f', '#c9a227', muted];
 
   charts.pie.setOption({
@@ -414,22 +476,26 @@ function renderPie() {
     color: palette,
     title: {
       text: fmtShort(total),
-      // 窄屏放不下图例，把占比最高的那项写进副标题，信息不丢
-      subtext: ({ today: '今日', yesterday: '昨日', before: '前日',
-                  '7d': '7 天', '30d': '30 天' })[state.range] || '今日',
+      // 环心就是区间总量，积分跟着写在一起，不用再去别的卡片找。
+      // 必须分两行：环内宽度有限，单行会被圆环盖掉后半截
+      subtext: (({ today: '今日', yesterday: '昨日', before: '前日',
+                   '7d': '7 天', '30d': '30 天' })[state.range] || '今日') +
+               `\n积分 ${fmtCredit(sumCrq ? sumCredit : null)}`,
       left: narrow ? '50%' : '34%',
-      top: narrow ? '34%' : '40%',
+      top: narrow ? '28%' : '32%',
       textAlign: 'center',
       textStyle: { color: text, fontSize: narrow ? 15 : 17, fontWeight: 700, fontFamily: 'inherit' },
-      subtextStyle: { color: muted, fontSize: narrow ? 10 : 11, fontFamily: 'inherit' },
+      subtextStyle: { color: muted, fontSize: narrow ? 9.5 : 10.5,
+                      lineHeight: narrow ? 12 : 14, fontFamily: 'inherit' },
     },
     tooltip: {
       trigger: 'item',
       backgroundColor: v('--panel'), borderColor: v('--border'), textStyle: { color: text, fontSize: 12 },
       formatter: (p) => {
         const it = top[p.dataIndex] || {};
-        return `${p.name}<br>${fmtFull(p.value)} · ${(p.value / total * 100).toFixed(1)}%` +
-          (it.credit ? `<br><span style="opacity:.65">积分 ${fmtCredit(it.credit)}</span>` : '');
+        return `${p.name}<br>${fmtFull(p.value)} tokens · ${(p.value / total * 100).toFixed(1)}%` +
+          `<br><span style="opacity:.65">积分 ${fmtCredit(it.credit_reqs ? it.credit : null)}` +
+          (it.turns ? ` · ${covText(it.credit_reqs, it.turns)}` : '') + `</span>`;
       },
     },
     legend: narrow ? {
@@ -460,13 +526,24 @@ function renderPie() {
     + ' · ' + (RANGE_LABEL[state.range] || '今日');
   $('pieCap').innerHTML = narrow && top[0]
     ? `${capBase}<span class="hint">${escapeHtml(top[0].name)}</span>`
-    : capBase;
+    : `${capBase}<span class="hint">${escapeHtml(covText(sumCrq, sumTurns))}</span>`;
 }
 
 /* ---------------- 项目 TOP5 / 会话 TOP5 ---------------- */
+/* 柱子右侧永远两段：token 在前、积分在后。没有积分记录写 —，不写 0 */
+function barLabel(it, value) {
+  const cr = (it.credit_reqs || 0) > 0 ? fmtCredit(it.credit) : '—';
+  return `{v|${fmtShort(value)}}{c|· ${cr}}`;
+}
+const BAR_RICH = (muted, faint) => ({
+  v: { color: muted, fontSize: 10.5, fontFamily: 'inherit' },
+  c: { color: faint, fontSize: 10, fontFamily: 'inherit', padding: [0, 0, 0, 3] },
+});
+
 function renderProj() {
   const items = (state.p.by_project || []).slice(0, 5);
   const accent = v('--accent'), muted = v('--muted'), text = v('--text');
+  const faint = v('--faint');
   const rows = items.slice().reverse();               // 第一名放最上面
   const max = Math.max(...rows.map(x => x.tokens), 1);
   if (!dirty('proj', [state.range, items, NARROW()])) return;
@@ -475,8 +552,8 @@ function renderProj() {
     animation: ANIM,
     animationDurationUpdate: ANIM ? 260 : 0,
     // 不用 containLabel：它会在宽度紧张时把绘图区算得很小，这里直接给固定边距
-    grid: NARROW() ? { left: 84, right: 60, top: 8, bottom: 8 }
-          : { left: 112, right: 76, top: 10, bottom: 10 },
+    grid: NARROW() ? { left: 84, right: 96, top: 8, bottom: 8 }
+          : { left: 112, right: 118, top: 10, bottom: 10 },
     tooltip: {
       trigger: 'item',
       backgroundColor: v('--panel'), borderColor: v('--border'),
@@ -484,7 +561,8 @@ function renderProj() {
       formatter: (p) => {
         const it = rows[p.dataIndex] || {};
         return `${p.name}<br>${fmtFull(p.value)} tokens` +
-          (it.credit ? `<br><span style="opacity:.65">积分 ${fmtCredit(it.credit)}</span>` : '');
+          `<br><span style="opacity:.65">积分 ${fmtCredit(it.credit_reqs ? it.credit : null)}` +
+          (it.turns ? ` · ${covText(it.credit_reqs, it.turns)}` : '') + `</span>`;
       },
     },
     xAxis: { type: 'value', show: false, max: max * 1.02 },
@@ -503,75 +581,91 @@ function renderProj() {
       barCategoryGap: '38%',
       itemStyle: { color: hexA(accent, .7), borderRadius: [0, 3, 3, 0] },
       label: {
-        show: true, position: 'right', color: muted, fontSize: 10.5,
-        formatter: (p) => fmtShort(p.value),
+        show: true, position: 'right',
+        formatter: (p) => barLabel(rows[p.dataIndex] || {}, p.value),
+        rich: BAR_RICH(muted, faint),
       },
     }],
   }, { notMerge: false, lazyUpdate: true });
 
   const lbl = RANGE_LABEL[state.range] || '今日';
   $('projCap').textContent = '项目消耗 TOP 5';
-  $('projHint').textContent = items.length ? `${lbl} · ${items.length} 个项目` : `${lbl}暂无数据`;
+  $('projHint').textContent = items.length
+    ? `${lbl} · 右为 token · 积分`
+    : `${lbl}暂无数据`;
 }
 
+/* ---------------- 会话消耗 TOP 5 ----------------
+   这一块刻意不用 ECharts：类目标签的基线锚定让"两行标签"和柱子对不齐，
+   行距还会忽宽忽窄（实测同一面板里 33px / 21px 混着来）。改成行布局后
+   每一行的高度、名称省略、模型名换行都是确定的。 */
 function renderSessList() {
   const list = (state.p && state.p.top_sessions) || [];
-  const rows = list.slice().reverse();               // 第一名放最上面
-  const max = Math.max(...rows.map(x => x.tokens), 1);
-  const accent = v('--accent'), accent2 = v('--accent-2');
-  const muted = v('--muted'), text = v('--text');
-  // NARROW() 进指纹：断点变化时 grid / 标签宽度要跟着重算
-  if (!dirty('sess', [state.range, list, NARROW()])) return;
-
-  const name = (x) => x.title || x.project || (x.session_id || '').slice(0, 8);
-  const dur = (x) => Math.max(0, ((x.last_ts || 0) - (x.first_ts || 0)) / 1000);
-
-  charts.sess.setOption({
-    animation: ANIM,
-    animationDurationUpdate: ANIM ? 260 : 0,
-    grid: NARROW() ? { left: 92, right: 58, top: 8, bottom: 8 }
-          : { left: 128, right: 72, top: 10, bottom: 10 },
-    tooltip: {
-      trigger: 'item',
-      backgroundColor: v('--panel'), borderColor: v('--border'),
-      textStyle: { color: text, fontSize: 12 },
-      formatter: (p) => {
-        const it = rows[p.dataIndex] || {};
-        return `<b>${escapeHtml(name(it))}</b><br>${fmtFull(p.value)} tokens` +
-          `<br><span style="opacity:.65">${it.turns || 0} 轮 · ${fmtDurShort(dur(it))}` +
-          ` · 积分 ${fmtCredit(it.credit)} · 历史累计 ${fmtFull(it.total_tokens || 0)}</span>`;
-      },
-    },
-    xAxis: { type: 'value', show: false, max: max * 1.02 },
-    yAxis: {
-      type: 'category',
-      data: rows.map((x, i) => `${rows.length - i}. ${name(x)}`),
-      axisLine: { show: false },
-      axisTick: { show: false },
-      axisLabel: { color: text, fontSize: NARROW() ? 10 : 11,
-                   width: NARROW() ? 76 : 110, overflow: 'truncate' },
-    },
-    series: [{
-      id: 'sess',
-      type: 'bar',
-      // 第一名用深色高亮，其余用浅色；数据项自带 itemStyle 覆盖 series 级颜色
-      data: rows.map((x, i) => ({
-        value: x.tokens,
-        itemStyle: { color: i === rows.length - 1 ? hexA(accent, .85) : hexA(accent2, .62) },
-      })),
-      barMaxWidth: 20,
-      barCategoryGap: '38%',
-      itemStyle: { borderRadius: [0, 3, 3, 0] },
-      label: {
-        show: true, position: 'right', color: muted, fontSize: 10.5,
-        formatter: (p) => fmtShort(p.value),
-      },
-    }],
-  }, { notMerge: false, lazyUpdate: true });
+  const box = $('sessRank');
+  if (!box) return;
+  if (!dirty('sess', [state.range, list])) return;
 
   const lbl = RANGE_LABEL[state.range] || '今日';
-  $('sessHint').textContent = list.length ? `${lbl} · Top ${list.length}` : `${lbl}暂无数据`;
+  $('sessHint').textContent = list.length
+    ? `${lbl} · 右为 token · 积分`
+    : `${lbl}暂无数据`;
+
+  if (!list.length) {
+    setHTML(box, '<div class="rk-empty">该区间没有会话记录</div>');
+    box._rows = 0;
+    syncRankMode();
+    return;
+  }
+  const max = Math.max(...list.map(x => x.tokens), 1);
+
+  // 行数变了才重建 DOM；否则只改内容，这样条形宽度能有过渡动画
+  if (box._rows !== list.length) {
+    setHTML(box, list.map(() => (
+      '<div class="rk"><div class="rk-top"><span class="rk-no"></span>' +
+      '<span class="rk-name"></span><span class="rk-model"></span></div>' +
+      '<div class="rk-bar"><span class="rk-track"><i></i></span>' +
+      '<span class="rk-val"></span></div></div>')).join(''));
+    box._rows = list.length;
+  }
+
+  list.forEach((x, i) => {
+    const el = box.children[i];
+    if (!el) return;
+    const cr = (x.credit_reqs || 0) > 0 ? fmtCredit(x.credit) : '—';
+    setText(el.querySelector('.rk-no'), String(i + 1));
+    setText(el.querySelector('.rk-name'), x.title || x.project || '未命名会话');
+    setText(el.querySelector('.rk-model'), x.model || '未知模型');
+    const pct = Math.max(1.5, (x.tokens || 0) / max * 100);
+    const fill = el.querySelector('.rk-track i');
+    if (fill._w !== pct) { fill._w = pct; fill.style.width = pct.toFixed(2) + '%'; }
+    setText(el.querySelector('.rk-val'), `${fmtShort(x.tokens)} · ${cr}`);
+
+    const dur = Math.max(0, ((x.last_ts || 0) - (x.first_ts || 0)) / 1000);
+    const tip = `${x.title || '未命名会话'}\n${x.model || '未知模型'}\n` +
+      `${fmtFull(x.tokens)} tokens · 积分 ${cr}\n` +
+      `${x.turns || 0} 轮 · ${fmtDurShort(dur)} · ${covText(x.credit_reqs, x.turns)}\n` +
+      `历史累计 ${fmtFull(x.total_tokens || 0)} tokens · 积分 ` +
+      `${fmtCredit(x.total_credit || null)}`;
+    if (el.title !== tip) el.title = tip;
+    el.classList.toggle('top', i === 0);
+  });
+
+  syncRankMode();
 }
+
+/* 卡片高度决定行内排版：矮到放不下两行就切单行，绝不互相压 */
+function syncRankMode() {
+  const box = $('sessRank');
+  if (!box) return;
+  const n = Math.max(1, box.children.length);
+  const perRow = box.clientHeight / n;
+  const compact = perRow < 32;
+  if (box._compact !== compact) {
+    box._compact = compact;
+    box.classList.toggle('compact', compact);
+  }
+}
+
 
 function renderTrend() {
   const s = state.series || [];
@@ -593,8 +687,9 @@ function renderTrend() {
       backgroundColor: v('--panel'), borderColor: v('--border'), textStyle: { color: text, fontSize: 12 },
       formatter: (ps) => {
         const i = ps[0].dataIndex;
-        return `<b>${s[i].date}</b><br>${fmtFull(vals[i])} tokens<br>` +
-          `<span style="opacity:.65">${s[i].turns} 轮 · 7日均 ${fmtShort(ma[i])}</span>`;
+        return `<b>${s[i].date}</b><br>${fmtFull(vals[i])} tokens` +
+          `<br><span style="opacity:.65">积分 ${fmtCredit(s[i].credit_reqs ? s[i].credit : null)}` +
+          ` · ${s[i].turns} 轮 · 7日均 ${fmtShort(ma[i])}</span>`;
       },
     },
     xAxis: {
@@ -622,7 +717,10 @@ function renderTrend() {
   }, { notMerge: false, lazyUpdate: true });
 
   const sum = vals.reduce((a, b) => a + b, 0);
-  $('trendHint').innerHTML = `近 <b>${state.days}</b> 天累计 <b>${fmtShort(sum)}</b>`;
+  const sumCr = s.reduce((a, b) => a + (b.credit || 0), 0);
+  const sumCrq = s.reduce((a, b) => a + (b.credit_reqs || 0), 0);
+  $('trendHint').innerHTML = `近 <b>${state.days}</b> 天累计 <b>${fmtShort(sum)}</b>` +
+    ` · 积分 <b>${fmtCredit(sumCrq ? sumCr : null)}</b>`;
 }
 
 function renderHeat() {
@@ -655,11 +753,15 @@ function renderHeat() {
   const winChanged = state._heatWin !== win;
   state._heatWin = win;
 
+  const crMap = {};
+  for (const d of days) crMap[d.date] = d.credit;
+
   charts.heat.setOption({
     animation: ANIM,
     tooltip: {
       backgroundColor: panel, borderColor: v('--border'), textStyle: { color: text, fontSize: 12 },
-      formatter: (p) => `${p.value[0]}<br>${fmtFull(p.value[1])} tokens`,
+      formatter: (p) => `${p.value[0]}<br>${fmtFull(p.value[1])} tokens` +
+        `<br><span style="opacity:.65">积分 ${fmtCredit(crMap[p.value[0]] || null)}</span>`,
     },
     // 图例会压住右下角的格子，这里关掉，靠 title 里的色深说明 + tooltip 表达
     visualMap: {

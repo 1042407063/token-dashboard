@@ -195,6 +195,49 @@ class Aggregator:
             return _none_label()
         return self._labels().get(uid) or _short(uid)
 
+    # ---------- 积分口径 ----------
+    # workbuddy.db 的 session_usage 只覆盖"它自己记过的请求"，没记过的请求根本
+    # 没有积分数。所以对外必须同时给出"多少轮真的拿到了积分记录"，
+    # 让前端能把"没有记录"显示成 —，而不是伪装成 0.00 分。
+    def _credit_span(self, s, e, w, ap):
+        """区间内：积分合计 + 拿到积分记录的请求数（分母是区间总轮数）。"""
+        row = self.store.query(
+            "SELECT COALESCE(SUM(value),0) v, COUNT(*) n, COUNT(DISTINCT day) d "
+            "FROM credits WHERE day BETWEEN ? AND ? AND %s" % w, (s, e) + ap)[0]
+        reqs = self.store.scalar(
+            "SELECT COUNT(DISTINCT conv_req) FROM events "
+            "WHERE day BETWEEN ? AND ? AND COALESCE(conv_req,'')<>'' "
+            "AND conv_req IN (SELECT key FROM credits) AND %s" % w,
+            (s, e) + ap) or 0
+        return {"value": _r(row.get("v") or 0, 2), "records": row.get("n") or 0,
+                "days": row.get("d") or 0, "reqs": int(reqs)}
+
+    def _sess_meta(self, sid):
+        """会话标题 / cwd：sessions_meta 优先，缺了退回 accounts。
+
+        accounts 来自 sessions 表且不带 deleted_at 过滤，软删会话的标题在那里
+        仍然有效；只认 sessions_meta 会让这些会话在界面上退化成八位十六进制。
+        """
+        row = self.store.query(
+            "SELECT COALESCE(NULLIF(m.title,''), NULLIF(a.title,'')) title, "
+            "COALESCE(NULLIF(m.cwd,''), NULLIF(a.cwd,'')) cwd "
+            "FROM (SELECT ? AS sid) s "
+            "LEFT JOIN sessions_meta m ON m.session_id=s.sid "
+            "LEFT JOIN accounts a ON a.session_id=s.sid", (sid,))
+        r = row[0] if row else {}
+        return (r.get("title") or "").strip(), (r.get("cwd") or "").strip()
+
+    def _sess_model(self, sid, day_from=None, day_to=None):
+        """会话用过的模型里 token 最多的那个（一个会话可能中途换模型）。"""
+        sql = ("SELECT COALESCE(NULLIF(model,''),'') m FROM events WHERE session_id=? "
+               "AND COALESCE(model,'') NOT IN ('','未知')")
+        params = [sid]
+        if day_from:
+            sql += " AND day BETWEEN ? AND ?"
+            params += [day_from, day_to]
+        sql += " GROUP BY m ORDER BY SUM(total) DESC LIMIT 1"
+        return self.store.scalar(sql, tuple(params)) or ""
+
     # ---------- 记忆化 ----------
     def _ver(self):
         """数据版本 + 日期序号 + 项目显示名版本。
@@ -388,13 +431,23 @@ class Aggregator:
                 "SELECT day, SUM(total) t, SUM(input) i, SUM(output) o, SUM(cache_read) c, "
                 "%s turns FROM events WHERE day>=? AND %s GROUP BY day ORDER BY day"
                 % (TURNS, w), (start.isoformat(),) + ap)}
+            # 每天的积分与"拿到积分记录的请求数"，趋势图 tooltip 要成对显示
+            cr = {x["day"]: x["v"] or 0 for x in self.store.query(
+                "SELECT day, SUM(value) v FROM credits WHERE day>=? AND %s GROUP BY day" % w,
+                (start.isoformat(),) + ap)}
+            crq = {x["day"]: x["n"] or 0 for x in self.store.query(
+                "SELECT day, COUNT(DISTINCT conv_req) n FROM events WHERE day>=? "
+                "AND COALESCE(conv_req,'')<>'' AND conv_req IN (SELECT key FROM credits) "
+                "AND %s GROUP BY day" % w, (start.isoformat(),) + ap)}
             out = []
             for k in range(days):
                 d = (start + datetime.timedelta(days=k)).isoformat()
                 r = rows.get(d) or {}
                 out.append({"date": d, "tokens": r.get("t") or 0,
                             "input": r.get("i") or 0, "output": r.get("o") or 0,
-                            "cache_read": r.get("c") or 0, "turns": r.get("turns") or 0})
+                            "cache_read": r.get("c") or 0, "turns": r.get("turns") or 0,
+                            "credit": _r(cr.get(d, 0), 2),
+                            "credit_reqs": crq.get(d, 0)})
             return out
         return self._cached(("series", days, acct), run)
 
@@ -446,9 +499,17 @@ class Aggregator:
                 if isinstance(h, int) and 0 <= h < 24:
                     hours[h] = x["t"] or 0
 
-            credit = self.store.scalar(
-                "SELECT SUM(value) FROM credits WHERE day BETWEEN ? AND ? AND %s" % w,
-                (s, e) + ap) or 0
+            cspan = self._credit_span(s, e, w, ap)
+            credit = cspan["value"]
+
+            # 按小时积分：与 hours 同一口径（多日区间就是各小时合计）
+            credit_hours = [0] * 24
+            for x in self.store.query(
+                    "SELECT hour, SUM(value) v FROM credits "
+                    "WHERE day BETWEEN ? AND ? AND %s GROUP BY hour" % w, (s, e) + ap):
+                h = x["hour"]
+                if isinstance(h, int) and 0 <= h < 24:
+                    credit_hours[h] = x["v"] or 0
 
             # 单日区间时带上"前一天"同样的小时分布，用来画对照；多日区间不需要
             prev_hours = [0] * 24
@@ -470,6 +531,12 @@ class Aggregator:
                     "SELECT COALESCE(NULLIF(%s,''),'未知') k, SUM(value) v FROM credits "
                     "WHERE day BETWEEN ? AND ? AND %s GROUP BY k" % (col, w),
                     (s, e) + ap)}
+                # 每组"真的拿到了积分记录"的请求数：没有就是没有，不能标成 0 分
+                crq = {x["k"]: x["n"] or 0 for x in self.store.query(
+                    "SELECT COALESCE(NULLIF(%s,''),'未知') k, COUNT(DISTINCT conv_req) n "
+                    "FROM events WHERE day BETWEEN ? AND ? AND COALESCE(conv_req,'')<>'' "
+                    "AND conv_req IN (SELECT key FROM credits) AND %s GROUP BY k"
+                    % (col, w), (s, e) + ap)}
                 labels = {}
                 if need_label:
                     names, _ = workspace_names()
@@ -484,6 +551,7 @@ class Aggregator:
                 return [{"name": x["k"], "label": labels.get(x["k"]) or x["k"],
                          "tokens": x["t"] or 0, "turns": x["turns"] or 0,
                          "credit": _r(cr.get(x["k"], 0), 2),
+                         "credit_reqs": crq.get(x["k"], 0),
                          "share": _r((x["t"] or 0) / tot * 100)} for x in ev]
 
             # 按账号拆分：events LEFT JOIN accounts，空值归"未归属"。
@@ -497,15 +565,34 @@ class Aggregator:
                 "WHERE e.day BETWEEN ? AND ? AND %s GROUP BY k ORDER BY t DESC" % aw,
                 (s, e) + aap)
             acct_total = sum((x["t"] or 0) for x in acct_rows) or 1
+            # 账号维度的积分：credits 里只有 session_id，必须借 accounts 换成账号
+            aw2, aap2 = _acct_sql(acct, "c.session_id")
+            acct_cr = {x["k"]: x["v"] or 0 for x in self.store.query(
+                "SELECT COALESCE(NULLIF(a.user_id,''),'') k, SUM(c.value) v "
+                "FROM credits c LEFT JOIN accounts a ON a.session_id=c.session_id "
+                "WHERE c.day BETWEEN ? AND ? AND %s GROUP BY k" % aw2, (s, e) + aap2)}
+            acct_crq = {x["k"]: x["n"] or 0 for x in self.store.query(
+                "SELECT COALESCE(NULLIF(a.user_id,''),'') k, COUNT(DISTINCT e.conv_req) n "
+                "FROM events e LEFT JOIN accounts a ON a.session_id=e.session_id "
+                "WHERE e.day BETWEEN ? AND ? AND COALESCE(e.conv_req,'')<>'' "
+                "AND e.conv_req IN (SELECT key FROM credits) AND %s GROUP BY k" % aw,
+                (s, e) + aap)}
             by_account = [{"name": x["k"] or ACCT_NONE, "label": self._label(x["k"]),
                            "tokens": x["t"] or 0, "turns": x["turns"] or 0,
-                           "credit": 0,
+                           "credit": _r(acct_cr.get(x["k"], 0), 2),
+                           "credit_reqs": acct_crq.get(x["k"], 0),
                            "share": _r((x["t"] or 0) / acct_total * 100)}
                           for x in acct_rows]
 
             sid_credit = {x["session_id"]: x["v"] or 0 for x in self.store.query(
                 "SELECT session_id, SUM(value) v FROM credits "
                 "WHERE day BETWEEN ? AND ? AND %s GROUP BY session_id" % w, (s, e) + ap)}
+            sid_crq = {x["session_id"]: x["n"] or 0 for x in self.store.query(
+                "SELECT session_id, COUNT(DISTINCT conv_req) n FROM events "
+                "WHERE day BETWEEN ? AND ? AND COALESCE(conv_req,'')<>'' "
+                "AND conv_req IN (SELECT key FROM credits) AND %s GROUP BY session_id"
+                % w, (s, e) + ap)}
+            names, _ = workspace_names()
             sess = []
             for x in self.store.query(
                     "SELECT session_id, SUM(total) t, %s turns, MIN(ts) f, MAX(ts) l "
@@ -513,12 +600,25 @@ class Aggregator:
                     "AND %s GROUP BY session_id ORDER BY t DESC LIMIT 5" % (TURNS, w),
                     (s, e) + ap):
                 sid = x["session_id"]
+                title, cwd = self._sess_meta(sid)
+                # 没有标题的老会话（自动化工作区、被清理过的会话）只能靠项目名兜底；
+                # 这里必须取事件里的 cwd，否则会退化成 c-Users-10424-WorkBuddy-xxx 编码名
+                prow = self.store.query(
+                    "SELECT project, cwd FROM events WHERE session_id=? "
+                    "AND (project IS NOT NULL OR COALESCE(cwd,'')<>'') ORDER BY ts LIMIT 1",
+                    (sid,))
+                pr = prow[0] if prow else {}
+                proj = pr.get("project") or ""
                 sess.append({
                     "session_id": sid,
-                    "title": self.store.scalar(
-                        "SELECT title FROM sessions_meta WHERE session_id=?", (sid,)) or "",
+                    "title": (title or _project_label(proj, pr.get("cwd") or cwd, names)
+                              or "未命名会话"),
+                    "project": proj,
+                    "cwd": pr.get("cwd") or cwd,
+                    "model": self._sess_model(sid, s, e),
                     "tokens": x["t"] or 0, "turns": x["turns"] or 0,
                     "credit": _r(sid_credit.get(sid, 0), 2),
+                    "credit_reqs": sid_crq.get(sid, 0),
                     "first_ts": x["f"], "last_ts": x["l"],
                 })
 
@@ -541,6 +641,10 @@ class Aggregator:
                 "records": r.get("n") or 0,
                 "cache_hit_rate": _r((r.get("c") or 0) / (r.get("i") or 1) * 100),
                 "credit": _r(credit, 2),
+                "credit_reqs": cspan["reqs"],
+                "credit_days": cspan["days"],
+                "credit_records": cspan["records"],
+                "credit_hours": credit_hours,
                 "hours": hours,
                 "prev_hours": prev_hours,
                 "by_model": split("model"),
@@ -562,17 +666,25 @@ class Aggregator:
                 "GROUP BY session_id ORDER BY t DESC LIMIT ?" % w,
                 (start,) + ap + (limit,))
             out = []
+            names, _ = workspace_names()
             for r in rows:
                 sid = r["session_id"]
-                title = self.store.scalar(
-                    "SELECT title FROM sessions_meta WHERE session_id=?", (sid,)) or ""
-                proj = self.store.scalar(
-                    "SELECT project FROM events WHERE session_id=? AND project IS NOT NULL "
-                    "LIMIT 1", (sid,)) or ""
+                title, cwd = self._sess_meta(sid)
+                prow = self.store.query(
+                    "SELECT project, cwd FROM events WHERE session_id=? "
+                    "AND (project IS NOT NULL OR COALESCE(cwd,'')<>'') ORDER BY ts LIMIT 1",
+                    (sid,))
+                pr = prow[0] if prow else {}
+                proj = pr.get("project") or ""
                 out.append({
-                    "session_id": sid, "title": title, "project": proj,
+                    "session_id": sid,
+                    "title": (title or _project_label(proj, pr.get("cwd") or cwd, names) or ""),
+                    "project": proj, "cwd": pr.get("cwd") or cwd,
+                    "model": self._sess_model(sid),
                     "account": self.store.account_of(sid),
                     "tokens": r["t"] or 0, "turns": r["turns"] or 0,
+                    "credit": _r(self.store.scalar(
+                        "SELECT SUM(value) FROM credits WHERE session_id=?", (sid,)) or 0, 2),
                     "first_ts": r["first_ts"], "last_ts": r["last_ts"],
                 })
             return out
@@ -585,7 +697,11 @@ class Aggregator:
             rows = self.store.query(
                 "SELECT day, SUM(total) t, %s turns FROM events WHERE day>=? AND %s "
                 "GROUP BY day ORDER BY day" % (TURNS, w), (start.isoformat(),) + ap)
-            return [{"date": r["day"], "tokens": r["t"] or 0, "turns": r["turns"] or 0}
+            cr = {x["day"]: x["v"] or 0 for x in self.store.query(
+                "SELECT day, SUM(value) v FROM credits WHERE day>=? AND %s GROUP BY day" % w,
+                (start.isoformat(),) + ap)}
+            return [{"date": r["day"], "tokens": r["t"] or 0, "turns": r["turns"] or 0,
+                     "credit": _r(cr.get(r["day"], 0), 2)}
                     for r in rows]
         return self._cached(("heat", weeks, acct), run, ttl=120.0)
 
@@ -772,21 +888,37 @@ class Aggregator:
                 "SELECT (ts/60000)*60000 AS t, SUM(total) AS v FROM events "
                 "WHERE session_id=? AND ts>=? GROUP BY t ORDER BY t", (sid, start))
             total = row.get("t") or 0
-            title = self.store.scalar(
-                "SELECT title FROM sessions_meta WHERE session_id=?", (sid,)) or ""
+            title, cwd = self._sess_meta(sid)
+            if not title:
+                title = _project_label(cur.get("project"), cwd or cur.get("cwd"),
+                                       workspace_names()[0]) or ""
+            today = self._today().isoformat()
             # 本对话的积分数：累计 + 今天。credit 表按 day 存，可直接按天过滤
             credit_total = self.store.scalar(
                 "SELECT SUM(value) FROM credits WHERE session_id=?", (sid,)) or 0
             credit_today = self.store.scalar(
                 "SELECT SUM(value) FROM credits WHERE session_id=? AND day=?",
-                (sid, self._today().isoformat())) or 0
+                (sid, today)) or 0
+            # 有积分记录的请求数：分母是轮数，前端据此判断"是 0 分还是没记录"
+            credit_reqs_today = self.store.scalar(
+                "SELECT COUNT(DISTINCT conv_req) FROM events WHERE session_id=? AND day=? "
+                "AND COALESCE(conv_req,'')<>'' AND conv_req IN (SELECT key FROM credits)",
+                (sid, today)) or 0
+            credit_reqs_total = self.store.scalar(
+                "SELECT COUNT(DISTINCT conv_req) FROM events WHERE session_id=? "
+                "AND COALESCE(conv_req,'')<>'' AND conv_req IN (SELECT key FROM credits)",
+                (sid,)) or 0
+            mcr = {x["m"]: x["v"] or 0 for x in self.store.query(
+                "SELECT COALESCE(NULLIF(model,''),'未知') m, SUM(value) v FROM credits "
+                "WHERE session_id=? GROUP BY m", (sid,))}
             tokens_today = self.store.scalar(
                 "SELECT SUM(total) FROM events WHERE session_id=? AND day=?",
-                (sid, self._today().isoformat())) or 0
+                (sid, today)) or 0
             turns_today = self.store.scalar(
                 "SELECT %s FROM events WHERE session_id=? AND day=?" % TURNS,
-                (sid, self._today().isoformat())) or 0
+                (sid, today)) or 0
             models = [{"model": m["m"], "tokens": m["t"] or 0,
+                       "credit": _r(mcr.get(m["m"], 0), 2),
                        "share": _r((m["t"] or 0) / (total or 1) * 100)} for m in models]
             last = row.get("last_ts") or 0
             first = row.get("first_ts") or 0
@@ -801,9 +933,11 @@ class Aggregator:
                 "model": models[0]["model"] if models else None,
                 "tokens": total,
                 "credit_total": _r(credit_total, 2),
+                "credit_reqs_total": credit_reqs_total,
                 "tokens_today": tokens_today,
                 "turns_today": turns_today,
                 "credit_today": _r(credit_today, 2),
+                "credit_reqs_today": credit_reqs_today,
                 "input": row.get("i") or 0,
                 "output": row.get("o") or 0,
                 "cache_read": row.get("c") or 0,
@@ -835,6 +969,12 @@ class Aggregator:
 
     # ---------- credit ----------
     def credits(self, days=30, acct=None):
+        """积分总览：全历史合计 + **真实覆盖率**。
+
+        mapped_ratio 只说明"积分行有没有对上转录"，跟"多少请求有积分"完全是
+        两回事：之前把它当覆盖率显示，于是 4% 的真实覆盖被读成 100%。
+        真正的覆盖率只能拿事件侧的请求数当分母。
+        """
         w, ap = _acct_sql(acct)
         db = self.store.query(
             "SELECT COUNT(*) n, SUM(value) v, SUM(mapped) m FROM credits "
@@ -848,9 +988,26 @@ class Aggregator:
         jsn = (js[0]["n"] if js else 0) or 0
         jsv = (js[0]["v"] if js else 0) or 0
 
+        # 分母：全部请求；分子：真的拿到了积分记录的请求
+        req_total = self.store.scalar(
+            "SELECT COUNT(DISTINCT COALESCE(conv_req,uid)) FROM events "
+            "WHERE COALESCE(conv_req,'')<>'' AND %s" % w, ap) or 0
+        req_cov = self.store.scalar(
+            "SELECT COUNT(DISTINCT conv_req) FROM events "
+            "WHERE COALESCE(conv_req,'')<>'' AND conv_req IN (SELECT key FROM credits) "
+            "AND %s" % w, ap) or 0
+        cov = _r(req_cov / req_total * 100) if req_total else None
+
+        # 完全没有积分记录的会话数：一眼看出缺口是不是出在"会话没被记过"
+        sess_gap = self.store.scalar(
+            "SELECT COUNT(*) FROM (SELECT DISTINCT session_id FROM events "
+            "WHERE COALESCE(session_id,'')<>'' AND %s) s WHERE s.session_id NOT IN "
+            "(SELECT session_id FROM credits WHERE session_id IS NOT NULL)" % w,
+            ap) or 0
+
         if dbn:
             ratio = _r(dbm / dbn * 100)
-            mode = "db" if ratio >= 90 else "db_partial"
+            mode = "db" if cov is not None and cov >= 90 else "db_partial"
             total, available = dbv, True
         elif jsn:
             ratio, mode, total, available = None, "jsonl_partial", jsv, True
@@ -859,7 +1016,9 @@ class Aggregator:
         return {"available": available, "mode": mode, "total": _r(total, 2),
                 "mapped": dbm, "unmapped": dbn - dbm, "records": dbn,
                 "mapped_ratio": ratio, "jsonl_records": jsn,
-                "jsonl_total": _r(jsv, 2)}
+                "jsonl_total": _r(jsv, 2),
+                "reqs": req_total, "reqs_covered": req_cov, "coverage": cov,
+                "sessions_without_credit": sess_gap}
 
     # ---------- 账号 ----------
     def accounts(self):

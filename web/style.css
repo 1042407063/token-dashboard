@@ -455,7 +455,128 @@ body { overflow: hidden; }
   bottom: 8px;
 }
 
-/* 会话排行：旧列表样式（现已改用 #chartSess 柱状图，复用 .chart），保留以便回退 */
+/* 会话消耗 TOP 5：用 HTML 行而不是 ECharts 类目标签。
+   类目标签的基线锚定让两行文字和柱子对不齐、行距忽宽忽窄，改成行布局后
+   每一行的高度、名称省略、模型换行都完全可控。 */
+.rank {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 30px;
+  bottom: 6px;
+  display: flex;
+  flex-direction: column;
+  /* 行高固定、剩余空间均分：卡片矮时紧凑不挤，卡片高时留白也是均匀的，
+     不会出现"某两行挤在一起、另两行空一大截" */
+  justify-content: space-evenly;
+  gap: 4px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.rk {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  padding: 0 2px;
+  border-radius: 6px;
+}
+
+.rk-top {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.rk-no {
+  flex: 0 0 auto;
+  color: var(--faint);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.rk-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rk-model {
+  flex: 0 0 auto;
+  max-width: 44%;
+  color: var(--faint);
+  font-size: 9.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rk-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.rk-track {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 7px;
+  border-radius: 4px;
+  background: var(--track);
+  overflow: hidden;
+}
+
+.rk-track i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--accent-2);
+  transition: width .35s ease;
+}
+
+/* 第一名用主色，其余用次色：不用数字也能一眼看出排名 */
+.rk.top .rk-track i { background: var(--accent); }
+
+.rk-val {
+  flex: 0 0 92px;          /* 定宽：否则各行数值长短不同，条形起点/长度会跟着抖 */
+  text-align: right;
+  color: var(--muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rk-empty {
+  color: var(--faint);
+  font-size: 11px;
+  padding: 6px 2px;
+}
+
+/* 面板矮的时候（约 174px 的卡片只放得下 24px/行）两行排版必然互压，
+   改成单行：序号 名称 模型 条形 数值 —— 用 display:contents 让内部元素
+   直接参与这一行的 flex 排布，模型名固定不被压缩，只让会话名省略。 */
+.rank.compact { gap: 1px; }
+.rank.compact .rk { flex-direction: row; align-items: center; gap: 7px; }
+.rank.compact .rk-top,
+.rank.compact .rk-bar { display: contents; }
+.rank.compact .rk-no { flex: 0 0 auto; }
+.rank.compact .rk-name { flex: 1 1 auto; }
+.rank.compact .rk-model { flex: 0 0 auto; max-width: none; }
+.rank.compact .rk-track { flex: 0 0 32%; }
+.rank.compact .rk-val { flex: 0 0 84px; }
+
+/* 会话排行：旧列表样式（现已改用 .rank 行布局），保留以便回退 */
 .sesslist {
   position: absolute;
   left: 14px;
@@ -531,6 +652,7 @@ body { overflow: hidden; }
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .mid, .duo, .pair { grid-template-columns: minmax(0, 1fr); }
   .chart { position: static; height: 240px; }
+  .rank { position: static; height: 240px; flex: none; }
   .sesslist { position: static; min-height: 170px; }
   .kpi .mini { margin-top: 8px; }
 }
@@ -588,6 +710,7 @@ body { overflow: hidden; }
   .mid, .duo, .pair { grid-template-columns: 1fr; gap: 8px; }
   /* flex:none 很关键：否则图表会被压缩，画布比卡片高，坐标轴标签溢出卡片 */
   .chart { position: static; height: 200px; flex: none; }
+  .rank { position: static; height: 200px; flex: none; }
   .sesslist { position: static; min-height: 148px; gap: 0; }
   .sessrow .tt { font-size: 11.5px; }
   .sessrow .tv { font-size: 11.5px; }
@@ -602,6 +725,7 @@ body { overflow: hidden; }
   #indexInfo { display: none; }   /* 空间不够时先让位给核心信息 */
   .num { font-size: 21px; }
   .chart { height: 172px; }
+  .rank { position: static; height: 200px; flex: none; }
   .sesslist { min-height: 136px; }
 
   /* 顶栏挤在 360px 里：缩小控件而不是让它溢出 */
