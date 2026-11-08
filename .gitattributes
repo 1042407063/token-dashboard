@@ -1,6 +1,9 @@
-* text=auto
+# 统一换行符：仓库与工作区都用 LF（.bat/.ps1 例外，见下方）
+* text=auto eol=lf
 *.sh  text eol=lf
 *.bat text eol=crlf
 *.ps1 text eol=crlf
 *.png binary
 *.jpg binary
+*.ico binary
+*.exe binary
