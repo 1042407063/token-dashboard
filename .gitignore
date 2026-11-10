@@ -21,3 +21,25 @@ data/*
 *.pyc
 .workbuddy/tmp/
 
+# ===== AI / agent 工具过程文件（预防性规则，路径不存在也生效）=====
+# 注意：.workbuddy/memory/ 是有意保留的项目日志，不要整目录忽略 .workbuddy/
+.workbuddy/backup/
+.workbuddy/trash/
+.workbuddy/cache/
+.workbuddy/logs/
+.workbuddy/sessions/
+.zcode/
+.deepseek/
+.harness/
+.codebuddy/
+.claude/
+.cursor/
+.trae/
+.aider/
+.roo/
+.windsurf/
+_scratch/
+.ai-tmp/
+*.bak
+*~
+
