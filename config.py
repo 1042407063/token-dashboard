@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 """集中配置：路径、端口、扫描预算。
 
-这里是全项目唯一的"路径来源"。任何模块都不要自己拼路径，
-否则中文目录名、盘符大小写、短路径的问题会散落到各处。
+所有路径都从这里出发。用户可改的项放在 data/settings.json，
+升级替换代码不会丢；数据源目录还可用 --workbuddy-dir 覆盖。
 """
 
+import json
 import os
 import sys
+import threading
 
 APP_NAME = "token-panel"
 # 2：新增 accounts / account_switches 两张表（纯增量，不动 events/credits 的列）
@@ -15,67 +17,129 @@ SCHEMA_VERSION = 2
 # ---------- 本项目自身路径 ----------
 ROOT = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(ROOT, "data")
+SETTINGS_PATH = os.path.join(DATA_DIR, "settings.json")
 INDEX_DB = os.path.join(DATA_DIR, "index.db")
 LOG_PATH = os.path.join(DATA_DIR, "panel.log")
 PID_PATH = os.path.join(DATA_DIR, "panel.pid")
 WEB_DIR = os.path.join(ROOT, "web")
 VENDOR_DIR = os.path.join(WEB_DIR, "vendor")
 
-# ---------- WorkBuddy 数据源 ----------
+# ---------- WorkBuddy 数据源（全程只读）----------
 HOME = os.path.expanduser("~")
 WORKBUDDY_DIR = os.path.join(HOME, ".workbuddy")
-PROJECTS_DIR = os.path.join(WORKBUDDY_DIR, "projects")   # JSONL 转录（必需）
-SESSIONS_DIR = os.path.join(WORKBUDDY_DIR, "sessions")   # 心跳，用于识别当前会话
-WB_DB = os.path.join(WORKBUDDY_DIR, "workbuddy.db")      # credit（可选）
-# 项目空间显示名：在 WorkBuddy 里重命名空间只改这个文件，磁盘目录名不变
+PROJECTS_DIR = os.path.join(WORKBUDDY_DIR, "projects")
+SESSIONS_DIR = os.path.join(WORKBUDDY_DIR, "sessions")
+WB_DB = os.path.join(WORKBUDDY_DIR, "workbuddy.db")
 WORKSPACE_NAMES_PATH = os.path.join(WORKBUDDY_DIR, "workspace-display-names.json")
 
-# ---------- 账号显示名 ----------
-# 转录与本地库里只有 user_id（UUID），没有昵称，也不联网去查。
-# 所以「没单独命名的账号」必须自带 UUID 短码 —— 否则多个账号会显示成同一个名字。
-#
-# 想给某个账号起昵称，按完整 UUID 或前 8 位填进 ACCOUNT_ALIASES 即可；
-# 前 8 位可在看板上悬停账号名看到，例如：
-#   "1a2b3c4d": "工作号",
-#
-# "__none__" 只用于「未归属」会话。旧版那个 "default" 已弃用：
-# 一个固定字符串不能同时代表多个真实账号，那正是多个账号同名的原因。
-ACCOUNT_NAME_TEMPLATE = "账号 {short}"   # 占位符：{short}=UUID 前 8 位、{uid}=完整 UUID
-ACCOUNT_ALIASES = {
-    "__none__": "未归属",
-    # 在这里填昵称，例如：
-    # "1a2b3c4d": "工作号",
-    # "5e6f7a8b": "个人号",
-}
+
+def apply_workbuddy_dir(path=None):
+    """覆盖数据源根目录，下游所有路径一起重算。"""
+    global WORKBUDDY_DIR, PROJECTS_DIR, SESSIONS_DIR, WB_DB, WORKSPACE_NAMES_PATH
+    chosen = path or os.environ.get("WORKBUDDY_DIR")
+    if not chosen:
+        return
+    WORKBUDDY_DIR = os.path.abspath(os.path.expanduser(chosen))
+    PROJECTS_DIR = os.path.join(WORKBUDDY_DIR, "projects")
+    SESSIONS_DIR = os.path.join(WORKBUDDY_DIR, "sessions")
+    WB_DB = os.path.join(WORKBUDDY_DIR, "workbuddy.db")
+    WORKSPACE_NAMES_PATH = os.path.join(WORKBUDDY_DIR, "workspace-display-names.json")
+
+
+# ---------- 账号显示名（settings.json 可覆盖）----------
+ACCOUNT_NAME_TEMPLATE = "账号 {short}"
+ACCOUNT_ALIASES = {"__none__": "未归属"}
 
 # ---------- 服务 ----------
-# 仅局域网：绑全部网卡，来源由 server._host_ok() 限制在回环 + RFC1918 私有网段
-HOST = "0.0.0.0"
+HOST = "127.0.0.1"      # 只监听本机回环，不对外暴露
 DEFAULT_PORT = 8770
 PORT_SPAN = 10
 MAX_SSE_CLIENTS = 4
 
-# ---------- 扫描 ----------
-CHUNK = 4 * 1024 * 1024          # 单次最多读 4MB
-MAX_LINE = 8 * 1024 * 1024       # 单行硬上限，超过则整段丢弃
-SCAN_INTERVAL = 1.0              # 秒，有客户端在看时的索引间隔
-IDLE_INTERVAL = 5.0              # 秒，没人在看时的索引间隔（省 CPU）
-WAIT_SLICE = 1.0                 # 秒，分片等待上限：即使漏了唤醒，切回实时也不超过一拍
-SCAN_BUDGET_MS = 80              # 单拍预算，超了就下一拍继续
-TICK = 1.5                       # 秒，SSE 推送间隔（也是变更合并窗口）
-PING_INTERVAL = 10.0             # 秒，数据没变化时的心跳间隔
-CACHE_TTL = 1.0                  # 秒，已废弃：缓存改为版本驱动，见 CACHE_MAX_AGE
-CACHE_MAX_AGE = 60.0             # 秒，版本没变时的兜底重算上限（防漏 bump 导致永久停更）
-CHECKPOINT_INTERVAL = 300.0      # 秒，按时间压 WAL（按拍数会随降频被拉长到 25 分钟）
-CREDIT_REFRESH_CEIL = 600        # 秒，db 长期不变时也强制全量复核一次
+# ---------- 扫描与缓存 ----------
+CHUNK = 4 * 1024 * 1024
+MAX_LINE = 8 * 1024 * 1024
+SCAN_INTERVAL = 1.0
+IDLE_INTERVAL = 5.0
+WAIT_SLICE = 1.0
+SCAN_BUDGET_MS = 80
+TICK = 1.5
+PING_INTERVAL = 10.0
+CACHE_MAX_AGE = 60.0
+CACHE_MAX_ENTRIES = 64       # 聚合缓存条目上限，超出按 LRU 淘汰
+CHECKPOINT_INTERVAL = 300.0
+CREDIT_REFRESH_CEIL = 600
 
-# 时间戳合理区间，防异常值把 datetime 搞崩
-TS_MIN = 946684800000            # 2000-01-01
-TS_MAX = 4102444800000           # 2100-01-01
+TS_MIN = 946684800000
+TS_MAX = 4102444800000
+
+
+def load_settings(path=None):
+    """读取用户配置并覆盖默认值。文件缺失或格式错误一律用默认值。"""
+    global ACCOUNT_NAME_TEMPLATE, ACCOUNT_ALIASES, DEFAULT_PORT
+    try:
+        with open(path or SETTINGS_PATH, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(cfg, dict):
+        return {}
+    tpl = cfg.get("account_name_template")
+    if isinstance(tpl, str) and tpl.strip():
+        ACCOUNT_NAME_TEMPLATE = tpl
+    aliases = cfg.get("account_aliases")
+    if isinstance(aliases, dict):
+        merged = {"__none__": "未归属"}
+        merged.update({str(k): str(v) for k, v in aliases.items()})
+        ACCOUNT_ALIASES = merged
+    port = cfg.get("port")
+    if isinstance(port, int) and not isinstance(port, bool) and 1024 <= port <= 65535:
+        DEFAULT_PORT = port
+    return cfg
+
+
+_ALIAS_LOCK = threading.Lock()
+
+
+def set_account_aliases(names):
+    """批量更新账号显示名，原子写回 data/settings.json 并同步内存配置。
+
+    names: {uid 或 "__none__": 昵称}；空字符串表示删除该别名（恢复默认）。
+    只改 account_aliases 一项，端口、模板等其他配置原样保留。
+    """
+    global ACCOUNT_ALIASES
+    with _ALIAS_LOCK:
+        ensure_dirs()
+        try:
+            with open(SETTINGS_PATH, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+            if not isinstance(cfg, dict):
+                cfg = {}
+        except (OSError, ValueError):
+            cfg = {}
+        old = cfg.get("account_aliases")
+        merged = dict(old) if isinstance(old, dict) else {}
+        for uid, name in (names or {}).items():
+            uid, name = str(uid).strip(), str(name).strip()
+            if not uid:
+                continue
+            if name:
+                merged[uid] = name
+            else:
+                merged.pop(uid, None)
+        cfg["account_aliases"] = merged
+        tmp = SETTINGS_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+        os.replace(tmp, SETTINGS_PATH)
+        live = {"__none__": "未归属"}
+        live.update(merged)
+        ACCOUNT_ALIASES = live
+        return dict(live)
 
 
 def ensure_dirs():
-    """创建运行时目录。"""
     os.makedirs(DATA_DIR, exist_ok=True)
 
 
@@ -86,3 +150,7 @@ def setup_console():
             stream.reconfigure(errors="replace")
         except (AttributeError, ValueError):
             pass
+
+
+apply_workbuddy_dir()
+load_settings()

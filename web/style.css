@@ -1,37 +1,49 @@
-/* WorkBuddy Token 面板 —— 一屏布局，明暗双主题 */
+/* WorkBuddy Token 面板 —— 现代简约风格，明暗双主题 */
 
 :root {
-  --bg: #f4f6f9;
+  --bg: #f7f8fa;
   --panel: #ffffff;
-  --border: #e4e7ec;
-  --text: #171a1f;
-  --muted: #6b7280;
-  --faint: #9aa1ad;
-  --accent: #2563eb;
+  --border: #e8ecf0;
+  --text: #1a1d21;
+  --muted: #5c6370;
+  --faint: #8b919e;
+  --accent: #3b82f6;
   --accent-2: #60a5fa;
-  --accent-soft: #e3ecfd;
-  --ok: #0f9d58;
-  --warn: #c77700;
-  --shadow: 0 1px 2px rgba(16, 24, 40, .05);
-  --grid: #eef1f5;
-  --track: #eef1f5;
+  --accent-soft: #eff6ff;
+  --ok: #10b981;
+  --warn: #d97706;
+  --shadow: 0 1px 3px rgba(0, 0, 0, .04), 0 1px 2px rgba(0, 0, 0, .03);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, .06), 0 2px 4px rgba(0, 0, 0, .04);
+  --grid: #f0f2f5;
+  --track: #f0f2f5;
+  --radius: 14px;
+  --radius-sm: 10px;
+  --radius-xs: 8px;
+  /* 版式刻度：卡片内边距、标题行高、标题与内容的间距
+     三者是全局共用的，改动只需动这里，所有卡片一起对齐 */
+  --card-pad: 16px;
+  --cap-h: 20px;
+  --cap-gap: 10px;
+  /* 图表/列表的起点 = 内边距 + 标题行 + 间距，和 .cap 严格同源 */
+  --body-top: calc(var(--card-pad) + var(--cap-h) + var(--cap-gap));
 }
 
 [data-theme="dark"] {
-  --bg: #0d1117;
-  --panel: #151b23;
-  --border: #232b36;
-  --text: #e7ebf2;
-  --muted: #8f99a8;
-  --faint: #6b7484;
-  --accent: #4d9fff;
-  --accent-2: #7fbcff;
-  --accent-soft: #17304f;
-  --ok: #35c98a;
-  --warn: #e2a33c;
-  --shadow: none;
-  --grid: #1e2631;
-  --track: #1e2631;
+  --bg: #0f1419;
+  --panel: #1a2028;
+  --border: #2a3340;
+  --text: #e8ecf1;
+  --muted: #8a94a5;
+  --faint: #5f6b7d;
+  --accent: #60a5fa;
+  --accent-2: #93bbfd;
+  --accent-soft: #1e3a5f;
+  --ok: #34d399;
+  --warn: #fbbf24;
+  --shadow: 0 1px 3px rgba(0, 0, 0, .2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, .3);
+  --grid: #252e3a;
+  --track: #252e3a;
 }
 
 * { box-sizing: border-box; }
@@ -41,78 +53,80 @@ html, body {
   height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family: -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+  font-family: -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", "Helvetica Neue", sans-serif;
   font-size: 13px;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body { overflow: hidden; }
 
 .app {
   display: grid;
-  /* 关键：列宽必须用 minmax(0,1fr)。默认的 auto 会被内部 nowrap 的数字撑成最大内容宽度，
-     整页就会宽过手机屏幕、右侧被裁掉 */
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(50px, auto) 132px minmax(0, 1.15fr) minmax(0, 1fr) minmax(0, .95fr);
-  gap: 10px;
-  height: calc(100vh - 26px);
-  padding: 10px 12px 0;
+  grid-template-rows: minmax(48px, auto) 164px minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, .97fr);
+  gap: 12px;
+  height: calc(100vh - 28px);
+  padding: 12px 16px 0;
 }
 
 /* ---------- 顶栏 ---------- */
 .bar {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;          /* 账号控件变多时换行，而不是把左侧状态挤到重叠 */
+  flex-wrap: wrap;
   row-gap: 6px;
-  min-height: 50px;
-  gap: 14px;
-  padding: 0 4px;
+  min-height: 48px;
+  gap: 12px;
+  padding: 0 2px;
 }
 
 .brand {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 650;
-  letter-spacing: .2px;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
 }
 
 .pulse {
   width: 8px; height: 8px; border-radius: 50%;
   background: var(--ok);
-  box-shadow: 0 0 0 0 rgba(53, 201, 138, .55);
-  animation: pulse 2.2s infinite;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, .5);
+  animation: pulse 2.4s infinite;
 }
 
 @keyframes pulse {
-  0%   { box-shadow: 0 0 0 0 rgba(53, 201, 138, .5); }
-  70%  { box-shadow: 0 0 0 7px rgba(53, 201, 138, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(53, 201, 138, 0); }
+  0%   { box-shadow: 0 0 0 0 rgba(16, 185, 129, .45); }
+  70%  { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
 }
 
-.meta { display: flex; align-items: center; gap: 8px; margin-left: 4px; flex: 0 0 auto; }
+.meta { display: flex; align-items: center; gap: 8px; margin-left: 2px; flex: 0 0 auto; }
 
 .chip {
-  padding: 3px 9px;
-  border-radius: 999px;
+  padding: 4px 10px;
+  border-radius: var(--radius-xs);
   background: var(--panel);
   border: 1px solid var(--border);
   color: var(--muted);
   font-size: 11.5px;
+  font-weight: 500;
   white-space: nowrap;
+  transition: all .18s ease;
 }
 
 .live {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 3px 10px 3px 8px;
-  border-radius: 999px;
+  padding: 4px 12px 4px 10px;
+  border-radius: var(--radius-xs);
   font-size: 11.5px;
   font-weight: 600;
   background: var(--accent-soft);
   color: var(--accent);
   white-space: nowrap;
+  border: 1px solid transparent;
 }
 
 .live::before {
@@ -121,17 +135,18 @@ body { overflow: hidden; }
   background: currentColor;
 }
 
-.live.warn { background: rgba(199, 119, 0, .12); color: var(--warn); }
-.live.down { background: rgba(220, 60, 60, .12); color: #dc3c3c; }
+.live.warn { background: rgba(217, 119, 6, .1); color: var(--warn); }
+.live.down { background: rgba(220, 60, 60, .1); color: #dc3c3c; }
 
 .actions { margin-left: auto; display: flex; align-items: center; gap: 8px; position: relative; }
 
 .seg {
   display: inline-flex;
-  padding: 2px;
+  padding: 3px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
+  gap: 2px;
 }
 
 .seg button {
@@ -139,33 +154,55 @@ body { overflow: hidden; }
   background: transparent;
   color: var(--muted);
   font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 6px;
+  font-weight: 500;
+  padding: 5px 12px;
+  border-radius: var(--radius-xs);
   cursor: pointer;
   font-family: inherit;
-  transition: background .15s, color .15s;
+  transition: all .18s ease;
 }
 
-.seg button:hover { color: var(--text); }
+.seg button:hover { color: var(--text); background: var(--track); }
 
 .seg button.on {
   background: var(--accent);
   color: #fff;
   font-weight: 600;
+  box-shadow: 0 1px 3px rgba(59, 130, 246, .25);
 }
 
-[data-theme="dark"] .seg button.on { color: #08121f; }
+[data-theme="dark"] .seg button.on {
+  color: #0f1419;
+  box-shadow: 0 1px 3px rgba(96, 165, 250, .2);
+}
 
-/* 卡片标题里的小号切换器（每日趋势旁边的 30/90） */
-.seg.mini { padding: 1px; border-radius: 7px; margin-left: 8px; flex: 0 0 auto; }
-.seg.mini button { font-size: 10px; padding: 2px 7px; border-radius: 5px; }
+/* 卡片标题里的小号切换器
+   高度必须收在 --cap-h(20px) 内，否则它会把 .cap 撑高 8px，
+   整张卡的标题基线跟着下沉，右半边卡片的图表也会错位 */
+.seg.mini {
+  padding: 1px;
+  height: calc(var(--cap-h) - 2px);
+  border-radius: 7px;
+  margin-left: 8px;
+  flex: 0 0 auto;
+  align-items: center;
+}
+.seg.mini button {
+  font-size: 9.5px;
+  line-height: 1;
+  padding: 3px 7px;
+  border-radius: 6px;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+}
 
 /* ---------- 账号 ---------- */
 .chip.acct {
   color: var(--text);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  max-width: 200px;          /* 自定义别名可能比 8 位 UUID 长，别撑破顶栏 */
+  max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -173,9 +210,8 @@ body { overflow: hidden; }
 .chip.acct.off { color: var(--muted); font-weight: 500; }
 
 .chip.btn { cursor: pointer; font-family: inherit; line-height: 1.4; }
-.chip.btn:hover { color: var(--text); border-color: var(--faint); }
+.chip.btn:hover { color: var(--text); border-color: var(--faint); background: var(--track); }
 
-/* 账号分段按钮：UUID 前 8 位，长了也不许撑破顶栏 */
 .seg.acct button {
   max-width: 160px;
   overflow: hidden;
@@ -184,19 +220,19 @@ body { overflow: hidden; }
   font-variant-numeric: tabular-nums;
 }
 
-/* 切换时间线：绝对定位浮层，不占一屏栅格（.app 是固定的 5 行） */
+/* 弹层 */
 .pop {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  width: 272px;
-  max-height: 264px;
+  width: 280px;
+  max-height: 280px;
   overflow: auto;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 10px 28px rgba(16, 24, 40, .16);
-  padding: 6px;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  padding: 8px;
   z-index: 40;
   display: none;
 }
@@ -208,11 +244,12 @@ body { overflow: hidden; }
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
-  padding: 5px 7px;
-  border-radius: 6px;
+  padding: 6px 8px;
+  border-radius: var(--radius-xs);
   font-size: 11.5px;
   color: var(--text);
   font-variant-numeric: tabular-nums;
+  transition: background .15s;
 }
 
 .pop .row:hover { background: var(--track); }
@@ -223,39 +260,40 @@ body { overflow: hidden; }
 .toast {
   position: fixed;
   left: 50%;
-  top: 62px;
-  transform: translate(-50%, -6px);
-  padding: 6px 14px;
-  border-radius: 999px;
+  top: 64px;
+  transform: translate(-50%, -8px);
+  padding: 8px 18px;
+  border-radius: var(--radius-sm);
   background: var(--panel);
   border: 1px solid var(--border);
-  box-shadow: 0 10px 28px rgba(16, 24, 40, .16);
+  box-shadow: var(--shadow-md);
   font-size: 12px;
+  font-weight: 500;
   color: var(--text);
   z-index: 50;
   opacity: 0;
   pointer-events: none;
-  transition: opacity .25s, transform .25s;
+  transition: opacity .25s ease, transform .25s ease;
 }
 
 .toast.on { opacity: 1; transform: translate(-50%, 0); }
 
-[data-theme="dark"] .pop,
-[data-theme="dark"] .toast { box-shadow: 0 10px 28px rgba(0, 0, 0, .55); }
-
-
 .icon {
-  width: 30px; height: 30px;
-  border-radius: 8px;
+  width: 32px; height: 32px;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--border);
   background: var(--panel);
   color: var(--muted);
   cursor: pointer;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1;
+  transition: all .18s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.icon:hover { color: var(--text); }
+.icon:hover { color: var(--text); border-color: var(--faint); background: var(--track); }
 
 /* ---------- 卡片 ---------- */
 .card {
@@ -264,26 +302,36 @@ body { overflow: hidden; }
   flex-direction: column;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 10px 14px;
+  border-radius: var(--radius);
+  padding: var(--card-pad);
   box-shadow: var(--shadow);
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+  transition: box-shadow .2s ease, border-color .2s ease;
 }
 
+.card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+/* 标题行高度写死：四张 KPI 卡里有的带 tag、有的带会话名、有的什么都没有，
+   让它们自然撑高就会出现 20/15/15/18px 三种高度，下面的大数字跟着各走各的。
+   固定成一行高 + 垂直居中后，所有卡片的大数字落在同一条基线上。 */
 .cap {
   display: flex;
   align-items: center;
-  gap: 7px;
-  flex: 0 0 auto;
+  gap: 8px;
+  flex: 0 0 var(--cap-h);
+  height: var(--cap-h);
   font-size: 11.5px;
   font-weight: 600;
   color: var(--muted);
-  letter-spacing: .3px;
-  margin-bottom: 6px;
+  letter-spacing: .2px;
+  margin-bottom: var(--cap-gap);
   white-space: nowrap;
-  overflow: visible;        /* 状态标签由内部 ellipsis 收敛，不再整行裁字 */
+  overflow: visible;
+  line-height: 1.2;
 }
 
 .hint {
@@ -291,7 +339,7 @@ body { overflow: hidden; }
   color: var(--faint);
   font-size: 11px;
   letter-spacing: 0;
-  margin-left: auto;          /* 靠右，避免和标题挤在一起换行 */
+  margin-left: auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -301,8 +349,8 @@ body { overflow: hidden; }
 .hint b { color: var(--muted); font-weight: 600; }
 
 .tag {
-  padding: 1px 6px;
-  border-radius: 5px;
+  padding: 2px 7px;
+  border-radius: 6px;
   font-size: 10.5px;
   font-weight: 500;
   background: var(--track);
@@ -310,16 +358,16 @@ body { overflow: hidden; }
   letter-spacing: 0;
 }
 
-.tag.warn { background: rgba(199, 119, 0, .12); color: var(--warn); }
+.tag.warn { background: rgba(217, 119, 6, .1); color: var(--warn); }
 
-/* 会话状态灯：绿=活跃、黄=空闲、灰=已结束 */
+/* 会话状态灯 */
 .status {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   flex: 0 0 auto;
-  padding: 2px 8px 2px 7px;
-  border-radius: 999px;
+  padding: 3px 9px 3px 8px;
+  border-radius: var(--radius-xs);
   font-size: 10.5px;
   font-weight: 600;
   white-space: nowrap;
@@ -331,12 +379,11 @@ body { overflow: hidden; }
   border-radius: 50%;
   background: currentColor;
 }
-.status.on { background: rgba(15, 157, 88, .13); color: var(--ok); }
-.status.on::before { animation: pulse 1.8s infinite; }
-.status.idle { background: rgba(199, 119, 0, .13); color: var(--warn); }
+.status.on { background: rgba(16, 185, 129, .12); color: var(--ok); }
+.status.on::before { animation: pulse 2s infinite; }
+.status.idle { background: rgba(217, 119, 6, .12); color: var(--warn); }
 .status.off { background: var(--track); color: var(--faint); }
 
-/* 卡片标题里的会话名：正常字色、长了就省略，不挤掉右侧标签 */
 .sessname {
   flex: 1 1 auto;
   min-width: 0;
@@ -352,39 +399,48 @@ body { overflow: hidden; }
 .kpis {
   display: grid;
   grid-template-columns: minmax(0,1.15fr) minmax(0,1.35fr) minmax(0,1fr) minmax(0,1fr);
-  gap: 10px;
+  gap: 12px;
   min-height: 0;
-  min-width: 0;   /* 网格项的 min-width 默认是 auto，会被内容撑破容器 */
+  min-width: 0;
 }
 
 .kpi { display: flex; flex-direction: column; }
 
+/* 数字块和副标题都不许被 flex 压缩：
+   原来卡片一矮，.num 就被压到 28px，而它的行高是 35px，
+   多出来的部分被 overflow:hidden 切掉 —— 表现出来就是"万"字下沿被削平。 */
 .num {
-  font-size: 31px;
-  font-weight: 660;
-  letter-spacing: -.8px;
-  line-height: 1.12;
+  flex: 0 0 auto;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.8px;
+  line-height: 1.25;
   font-variant-numeric: tabular-nums;
   color: var(--text);
   white-space: nowrap;
+  /* 行盒比"万/亿"这类中文字形的实际外框矮 2~3px，overflow:hidden 会把
+     字底削平。上下各垫 3px 再用负 margin 抵回来：裁剪框放宽，占位不变。 */
+  padding: 3px 0;
+  margin: -3px 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .num small {
   font-size: 14px;
-  font-weight: 550;
+  font-weight: 500;
   letter-spacing: 0;
+  line-height: 1;
   color: var(--muted);
   margin-left: 3px;
 }
 
 .sub {
+  flex: 0 0 auto;
   margin-top: 4px;
   font-size: 11.5px;
   color: var(--muted);
-  line-height: 1.4;
-  /* 允许换行并最多显示两行：单行省略会把内容吃掉 */
+  line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -398,80 +454,100 @@ body { overflow: hidden; }
 .sub .ok { color: var(--ok); font-weight: 600; }
 .sub .dim { color: var(--faint); }
 
-.spark { display: none; }   /* 最近一分钟走势曲线已取消 */
+.spark { display: none; }
 
 .mini {
   display: flex;
   align-items: flex-end;
-  gap: 2px;
-  height: 20px;
+  gap: 3px;
+  height: 26px;
   margin-top: auto;
+  padding: 4px 0 1px;
+  flex-shrink: 0;
+  /* 基线：区间里常常只有一两个小时有数据，其余柱子是 2px 的残点，
+     没有基线时看着像卡片上的污渍，加一条淡线就变成"一排小柱子" */
+  border-bottom: 1px solid var(--track);
 }
 
 .mini i {
   flex: 1;
   min-height: 2px;
   background: var(--accent-soft);
-  border-radius: 2px 2px 0 0;
-  transition: height .45s ease;
+  border-radius: 3px 3px 0 0;
+  transition: height .45s cubic-bezier(.4, 0, .2, 1);
 }
 
 .mini i.hot { background: var(--accent-2); }
 
-/* ---------- 图表 ---------- */
+/* ---------- 图表区域 ---------- */
 .mid {
   display: grid;
   min-width: 0;
-  grid-template-columns: minmax(0,1.42fr) minmax(0,1fr);
-  gap: 10px;
+  /* 三行两列统一 1:1：中间行原来是 1.42:1，上下都是 1:1，
+     一屏里出现两种分栏比例，视觉上就像那两张卡"没对齐" */
+  grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+  gap: 12px;
   min-height: 0;
 }
 
-/* 趋势与热力图并排：面积各减一半，但高度保留，标签不会被压扁 */
 .pair {
   display: grid;
   min-width: 0;
   grid-template-columns: minmax(0,1fr) minmax(0,1fr);
-  gap: 10px;
+  gap: 12px;
   min-height: 0;
 }
 
-/* 项目 TOP5 + 会话 TOP5 */
 .duo {
   display: grid;
   min-width: 0;
   grid-template-columns: minmax(0,1fr) minmax(0,1fr);
-  gap: 10px;
+  gap: 12px;
   min-height: 0;
 }
 
-/* 图表用绝对定位填满卡片剩余区域：
-   flex 高度在 ECharts 初始化时可能还没稳定，会导致画布偏小、下方留白 */
 .chart {
   position: absolute;
-  left: 14px;
-  right: 14px;
-  top: 32px;
-  bottom: 8px;
+  left: var(--card-pad);
+  right: var(--card-pad);
+  top: var(--body-top);
+  bottom: var(--card-pad);
 }
 
-/* 会话消耗 TOP 5：用 HTML 行而不是 ECharts 类目标签。
-   类目标签的基线锚定让两行文字和柱子对不齐、行距忽宽忽窄，改成行布局后
-   每一行的高度、名称省略、模型换行都完全可控。 */
+/* ---------- 会话排行 ---------- */
 .rank {
+  /* 副标签列宽（两栏共用，保证项目卡与会话卡的名称/条形/数值三列对齐） */
+  --rk-sub-w: 92px;
   position: absolute;
-  left: 14px;
-  right: 14px;
-  top: 30px;
-  bottom: 6px;
+  left: var(--card-pad);
+  right: var(--card-pad);
+  top: var(--body-top);
+  bottom: var(--card-pad);
   display: flex;
   flex-direction: column;
-  /* 行高固定、剩余空间均分：卡片矮时紧凑不挤，卡片高时留白也是均匀的，
-     不会出现"某两行挤在一起、另两行空一大截" */
-  justify-content: space-evenly;
-  gap: 4px;
+  gap: 6px;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.rank::-webkit-scrollbar {
+  width: 4px;
+}
+
+.rank::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.rank::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.rank::-webkit-scrollbar-thumb:hover {
+  background: var(--faint);
 }
 
 .rk {
@@ -479,41 +555,60 @@ body { overflow: hidden; }
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 3px;
-  padding: 0 2px;
-  border-radius: 6px;
+  gap: 7px;
+  padding: 6px 8px;
+  border-radius: var(--radius-xs);
+  transition: background .16s ease;
 }
+
+.rk:hover { background: var(--bg); }
 
 .rk-top {
   display: flex;
-  align-items: baseline;
-  gap: 6px;
+  align-items: center;
+  gap: 8px;
   min-width: 0;
 }
 
+/* 名次做成小圆牌：数字居中对齐，和右侧条形起止点形成一条竖直基准线 */
 .rk-no {
   flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+  border-radius: 5px;
+  text-align: center;
   color: var(--faint);
-  font-size: 10.5px;
+  background: var(--track);
+  font-size: 10px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
+
+.rk.top .rk-no { color: #fff; background: var(--accent); }
 
 .rk-name {
   flex: 1 1 auto;
   min-width: 0;
   color: var(--text);
-  font-size: 11px;
-  line-height: 1.25;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+/* 副标签列定宽右对齐：项目卡这里是占比（"63.3%"，21~27px），会话卡是模型名
+   （"deepseek-v4.1-flash"，88px）。不定宽时两栏的名称列宽会差出 60px，
+   条形起点跟着错开，并排看就是"没对齐"。定宽后名称、条形、数值三列在两栏
+   里落在同一条竖直基准线上。 */
 .rk-model {
-  flex: 0 0 auto;
-  max-width: 44%;
+  flex: 0 0 var(--rk-sub-w, 92px);
+  width: var(--rk-sub-w, 92px);
+  text-align: right;
   color: var(--faint);
-  font-size: 9.5px;
+  font-size: 10px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -522,35 +617,38 @@ body { overflow: hidden; }
 .rk-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
 }
 
 .rk-track {
   flex: 1 1 auto;
   min-width: 0;
-  height: 7px;
+  height: 8px;
   border-radius: 4px;
   background: var(--track);
   overflow: hidden;
 }
 
+/* 条形和 ECharts 柱用同一套"左浓右淡"渐变，两种图表摆一起才是同一种语言 */
 .rk-track i {
   display: block;
   height: 100%;
   border-radius: 4px;
-  background: var(--accent-2);
-  transition: width .35s ease;
+  background: linear-gradient(90deg, var(--accent-2), color-mix(in srgb, var(--accent-2) 55%, transparent));
+  transition: width .4s cubic-bezier(.4, 0, .2, 1);
 }
 
-/* 第一名用主色，其余用次色：不用数字也能一眼看出排名 */
-.rk.top .rk-track i { background: var(--accent); }
+.rk.top .rk-track i {
+  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 55%, transparent));
+}
 
 .rk-val {
-  flex: 0 0 92px;          /* 定宽：否则各行数值长短不同，条形起点/长度会跟着抖 */
+  flex: 0 0 104px;
   text-align: right;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   overflow: hidden;
@@ -559,87 +657,84 @@ body { overflow: hidden; }
 
 .rk-empty {
   color: var(--faint);
-  font-size: 11px;
-  padding: 6px 2px;
+  font-size: 12px;
+  padding: 10px 2px;
 }
 
-/* 面板矮的时候（约 174px 的卡片只放得下 24px/行）两行排版必然互压，
-   改成单行：序号 名称 模型 条形 数值 —— 用 display:contents 让内部元素
-   直接参与这一行的 flex 排布，模型名固定不被压缩，只让会话名省略。 */
-.rank.compact { gap: 1px; }
-.rank.compact .rk { flex-direction: row; align-items: center; gap: 7px; }
+/* 紧凑模式 */
+.rank.compact { gap: 4px; }
+.rank.compact .rk { flex-direction: row; align-items: center; gap: 10px; padding: 6px 8px; }
 .rank.compact .rk-top,
 .rank.compact .rk-bar { display: contents; }
 .rank.compact .rk-no { flex: 0 0 auto; }
-.rank.compact .rk-name { flex: 1 1 auto; }
-.rank.compact .rk-model { flex: 0 0 auto; max-width: none; }
-.rank.compact .rk-track { flex: 0 0 32%; }
-.rank.compact .rk-val { flex: 0 0 84px; }
-
-/* 会话排行：旧列表样式（现已改用 .rank 行布局），保留以便回退 */
-.sesslist {
-  position: absolute;
-  left: 14px;
-  right: 14px;
-  top: 29px;
-  bottom: 8px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-around;
-  gap: 2px;
-  overflow: hidden;
-}
-
-.sessrow {
-  display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.sessrow .rk {
-  font-size: 10.5px;
-  color: var(--faint);
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.sessrow .tt {
-  font-size: 12px;
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  min-width: 0;
-}
-
-.sessrow .tt i {
-  font-style: normal;
-  color: var(--faint);
-  font-size: 10.5px;
-  margin-left: 6px;
-}
-
-.sessrow .tv {
-  font-size: 12px;
-  font-weight: 650;
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.sessrow.top .tt { font-weight: 600; }
+.rank.compact .rk-name { flex: 1 1 auto; font-size: 12px; }
+.rank.compact .rk-model { flex: 0 0 var(--rk-sub-w, 92px); max-width: none; font-size: 10px; }
+.rank.compact .rk-track { flex: 0 0 30%; height: 7px; }
+.rank.compact .rk-val { flex: 0 0 94px; font-size: 11px; }
 
 /* ---------- 页脚 ---------- */
 .foot {
-  height: 26px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 10px;
+  padding: 0 16px;
   color: var(--faint);
   font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  position: relative;
+}
+
+/* 页脚文案可能很长，独占可用宽度，超出用省略号而不是被硬切 */
+.foot-txt {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* ---------- 版本号角标 ----------
+   原来 fixed 在右下角，会直接压住"52 周热力图"卡片的最后几列格子。
+   现在收进页脚并贴右端：跟着页脚走，不挡任何内容，也不会在窄屏上
+   跟别的东西重叠。底色原来用 --track，和页面背景只差 7 个灰阶，
+   在浅色主题下几乎看不见，换成 --panel + 边框才有形状。 */
+.version-badge {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--faint);
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .3px;
+  line-height: 1.6;
+  transition: color .18s ease, border-color .18s ease;
+}
+
+.version-badge:hover {
+  color: var(--muted);
+  border-color: var(--faint);
+}
+
+/* ---------- 中等宽度（笔记本半屏 / 分屏）----------
+   4 列 KPI 在这里每张只剩 280px 左右，32px 的大数字 + 12px 副标题
+   会把第二行挤成三行并被裁掉。降一档字号，内容就刚好落在两行内。 */
+@media (max-width: 1400px) and (min-width: 1101px) {
+  /* 内边距统一走变量，图表/列表的定位也跟着一起收，不会错位 */
+  .app { --card-pad: 14px; --cap-gap: 8px; }
+  .kpis { grid-template-columns: minmax(0,1.1fr) minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr); }
+  .num { font-size: 27px; letter-spacing: -.6px; }
+  .num small { font-size: 12.5px; }
+  .sub { font-size: 11px; line-height: 1.45; -webkit-line-clamp: 3; }
+  .cap { font-size: 11px; }
+  /* 副标题放开到三行后，卡片高度也要跟上，否则文字会被卡片底边压住 */
+  .app { grid-template-rows: minmax(48px, auto) 176px minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, .97fr); }
 }
 
 /* ---------- 窄屏降级 ---------- */
@@ -648,12 +743,13 @@ body { overflow: hidden; }
   .app {
     height: auto;
     grid-template-rows: auto;
+    gap: 10px;
+    padding: 10px 12px 0;
   }
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .mid, .duo, .pair { grid-template-columns: minmax(0, 1fr); }
   .chart { position: static; height: 240px; }
   .rank { position: static; height: 240px; flex: none; }
-  .sesslist { position: static; min-height: 170px; }
   .kpi .mini { margin-top: 8px; }
 }
 
@@ -661,84 +757,108 @@ body { overflow: hidden; }
 @media (max-width: 720px) {
   html, body {
     height: auto;
-    -webkit-text-size-adjust: 100%;   /* 横屏时别自动放大字号 */
+    -webkit-text-size-adjust: 100%;
   }
   body { overflow: auto; overflow-x: hidden; }
 
   .app {
     height: auto;
     grid-template-rows: auto;
-    gap: 8px;
-    padding: 8px 8px 14px;
+    gap: 10px;
+    padding: 10px 10px 14px;
   }
 
-  /* 顶栏拆两行：第一行品牌+状态，第二行占满宽度的分段控件 */
   .bar {
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 8px;
     row-gap: 8px;
     padding: 0 2px;
   }
-  .brand { font-size: 13.5px; gap: 6px; }
+  .brand { font-size: 14px; gap: 8px; }
   .meta { order: 3; width: 100%; margin-left: 0; gap: 6px; flex-wrap: wrap; }
   .actions { order: 2; margin-left: auto; gap: 6px; }
-  .chip { font-size: 10.5px; padding: 2px 7px; }
-  .live { font-size: 10.5px; padding: 2px 8px 2px 7px; }
+  .chip { font-size: 10.5px; padding: 3px 8px; }
+  .live { font-size: 10.5px; padding: 3px 10px 3px 8px; }
 
-  /* 触摸目标放大：手指点 26px 高的按钮太容易点错 */
-  .seg { padding: 3px; border-radius: 9px; }
+  .seg { padding: 3px; border-radius: var(--radius-sm); }
   .seg button {
     font-size: 12px;
-    padding: 7px 13px;
-    border-radius: 7px;
+    padding: 6px 12px;
+    border-radius: var(--radius-xs);
     touch-action: manipulation;
   }
   .icon {
-    width: 36px; height: 36px;
+    width: 34px; height: 34px;
     font-size: 15px;
     touch-action: manipulation;
   }
 
-  .kpis { grid-template-columns: 1fr 1fr; gap: 8px; }
-  .card { padding: 9px 11px; border-radius: 10px; overflow: visible; }
-  .cap { font-size: 11px; margin-bottom: 4px; gap: 5px; }
-  .num { font-size: 23px; letter-spacing: -.5px; }
+  .kpis { grid-template-columns: 1fr 1fr; gap: 10px; }
+  /* 手机上卡片内边距也走变量，否则 .chart 的定位还按桌面 16px 算，会偏出去 */
+  .app { --card-pad: 12px; --cap-gap: 6px; }
+  .card { border-radius: var(--radius-sm); overflow: hidden; }
+  /* 手机上标题行只放得下一行：状态灯只留圆点、不要文字，
+     腾出来的宽度给会话名，否则"987医院巡检"会被压成几个像素 */
+  .cap {
+    font-size: 11px; gap: 6px;
+    flex: 0 0 var(--cap-h); height: var(--cap-h);
+    flex-wrap: nowrap; line-height: 1.2;
+  }
+  .cap .status {
+    flex: 0 0 auto;
+    width: 8px; height: 8px;
+    padding: 0; margin-left: auto;
+    font-size: 0; letter-spacing: 0;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .cap .status::before { display: none; }
+  .num { font-size: 24px; letter-spacing: -.5px; }
   .num small { font-size: 12px; }
-  .sub { font-size: 10.5px; line-height: 1.35; margin-top: 3px; }
-  .tag { font-size: 9.5px; padding: 0 5px; }
+  /* 手机上一行只放得下 9~10 个字，副标题必须放开到 3 行，
+     否则"deepseek-v4.1-flash · 累计…"这种会被省略号砍掉关键信息 */
+  .sub { font-size: 10.5px; line-height: 1.4; margin-top: 4px; -webkit-line-clamp: 3; }
+  .tag { font-size: 9.5px; padding: 1px 6px; }
 
-  .mid, .duo, .pair { grid-template-columns: 1fr; gap: 8px; }
-  /* flex:none 很关键：否则图表会被压缩，画布比卡片高，坐标轴标签溢出卡片 */
-  .chart { position: static; height: 200px; flex: none; }
-  .rank { position: static; height: 200px; flex: none; }
-  .sesslist { position: static; min-height: 148px; gap: 0; }
-  .sessrow .tt { font-size: 11.5px; }
-  .sessrow .tv { font-size: 11.5px; }
+  .mid, .duo, .pair { grid-template-columns: 1fr; gap: 10px; }
+  /* 用 relative 而不是 static：ECharts 会给容器写内联 px 宽高，
+     static 下容器宽度塌成内容宽，画布会比卡片宽出去一截 */
+  .chart, .rank {
+    position: relative; left: auto; right: auto; top: auto; bottom: auto;
+    width: auto; flex: none;
+  }
+  .chart { height: 200px; }
+  /* 手机上卡片只有 400px 宽，92px 的副标签列会把名称挤没，收窄 */
+  .rank { height: 200px; --rk-sub-w: 64px; }
+  /* 手机宽度下两栏是上下堆叠的，不存在横向对齐问题；
+     模型名放不进 64px，硬挤只会变成"deepseek-v4.1-f…"。
+     这里直接收起副标签列，模型名仍在行内的 title 提示里 */
+  .rk-model { display: none; }
 
-  .kpi .mini { height: 16px; margin-top: 6px; }
+  .kpi .mini { height: 18px; margin-top: 8px; }
 
-  .foot { font-size: 10px; padding: 8px; }
+  .foot { font-size: 10px; padding: 8px 10px; height: auto; min-height: 28px; }
+  .foot-txt { white-space: normal; line-height: 1.5; text-align: center; }
+  /* 手机上绝对定位的角标会和换行的文案抢位置，回到文字流里排 */
+  .version-badge { position: static; transform: none; font-size: 9px; padding: 1px 6px; }
+  .foot { flex-wrap: wrap; row-gap: 4px; justify-content: center; }
 }
 
 /* ---------- 窄屏手机 ---------- */
 @media (max-width: 430px) {
-  #indexInfo { display: none; }   /* 空间不够时先让位给核心信息 */
-  .num { font-size: 21px; }
-  .chart { height: 172px; }
-  .rank { position: static; height: 200px; flex: none; }
-  .sesslist { min-height: 136px; }
+  #indexInfo { display: none; }
+  .num { font-size: 22px; }
+  .chart { height: 180px; }
+  .rank { position: relative; height: 200px; flex: none; }
 
-  /* 顶栏挤在 360px 里：缩小控件而不是让它溢出 */
-  .brand { font-size: 12.5px; }
-  .seg button { padding: 6px 9px; font-size: 11.5px; }
+  .brand { font-size: 13px; }
+  .seg button { padding: 5px 10px; font-size: 11.5px; }
   .icon { width: 32px; height: 32px; font-size: 14px; }
 }
 
-/* 账号控件在窄屏的降级：顶栏本来就换行，这里只让它内部再折一次 */
+/* 账号控件窄屏 */
 @media (max-width: 720px) {
   .actions { width: 100%; flex-wrap: wrap; justify-content: flex-end; }
-  /* 关键：分段控件默认会被 flex 压扁，但里面的按钮不收缩 → 整块溢出被裁掉。
-     拒绝压缩让它换行，顶栏才会多一行而不是被切掉。 */
   .actions > .seg { flex: 0 0 auto; }
   .actions > .chip { flex: 0 0 auto; }
   #segAcct {
@@ -749,10 +869,35 @@ body { overflow: hidden; }
   }
   #segAcct::-webkit-scrollbar { display: none; }
   .seg.acct button { max-width: 120px; font-size: 11px; padding: 4px 8px; }
-  .pop { width: min(88vw, 272px); }
+  .pop { width: min(88vw, 280px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .pulse { animation: none; }
   .mini i { transition: none; }
+  .rk-track i { transition: none; }
 }
+
+/* ---------- 账号改名弹层 ---------- */
+#acctRenamePop { width: min(92vw, 340px); }
+.pop .rename-row { gap: 8px; }
+.pop .rename-row .dim {
+  flex: 0 0 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pop .rename-row input {
+  flex: 1 1 auto; min-width: 0; height: 28px; padding: 3px 10px;
+  font: inherit; font-size: 12px; color: var(--text);
+  background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-xs);
+  transition: border-color .18s;
+}
+.pop .rename-row input:focus { outline: none; border-color: var(--accent); }
+.pop .rename-actions { gap: 8px; justify-content: space-between; }
+.pop .rename-msg { flex: 1 1 auto; min-width: 0; }
+.pop .btn-mini {
+  flex: 0 0 auto; padding: 4px 12px; font: inherit; font-size: 12px;
+  font-weight: 500;
+  color: var(--text); background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius-xs); cursor: pointer;
+  transition: all .18s;
+}
+.pop .btn-mini:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }

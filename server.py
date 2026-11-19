@@ -256,22 +256,13 @@ class Handler(BaseHTTPRequestHandler):
         self._body(body)
 
     def _host_ok(self):
-        """回环 + RFC1918 私有网段；公网 IP / 伪造域名一律 403。
-
-        HOST 绑 0.0.0.0 之后，这层是挡 DNS rebinding 与非局域网来源的主要防线。
-        """
+        """只允许本机回环；其余 Host 一律 403，挡住 DNS rebinding 与伪造域名。"""
         raw = (self.headers.get("Host") or "").strip().lower()
         if raw.startswith("["):                       # IPv6 形如 [::1]:8770
             host = raw[1:raw.index("]")] if "]" in raw else raw
         else:
             host = raw.split(":")[0]
-        if host in ("127.0.0.1", "localhost", "::1"):
-            return True
-        parts = host.split(".")
-        if len(parts) != 4 or not all(p.isdigit() and 0 <= int(p) <= 255 for p in parts):
-            return False
-        a, b = int(parts[0]), int(parts[1])
-        return a == 10 or (a == 192 and b == 168) or (a == 172 and 16 <= b <= 31)
+        return host in ("127.0.0.1", "localhost", "::1")
 
     def _static(self, rel, ctype):
         path = os.path.join(config.WEB_DIR, rel)
@@ -355,22 +346,22 @@ class Handler(BaseHTTPRequestHandler):
             elif path == "/api/today":
                 self._json(200, AGG.today(_acct(qs)))
             elif path == "/api/series":
-                days = _int(qs, "days", 30, (7, 365))
+                days = _choice(qs, "days", 30, (7, 30, 90, 365))
                 self._json(200, {"days": days, "series": AGG.series(days, _acct(qs))})
             elif path == "/api/heatmap":
-                weeks = _int(qs, "weeks", 52, (4, 104))
+                weeks = _choice(qs, "weeks", 52, (26, 52))
                 self._json(200, {"weeks": weeks, "days": AGG.heatmap(weeks, _acct(qs))})
             elif path == "/api/breakdown":
                 by = (qs.get("by") or ["model"])[0]
                 by = by if by in ("model", "project", "account") else "model"
-                days = _int(qs, "days", 0, (0, 365))
+                days = _choice(qs, "days", 0, (0, 7, 30, 90, 365))
                 self._json(200, {"by": by, "days": days or None,
                                  "items": AGG.breakdown(by, days or None, _acct(qs))})
             elif path == "/api/bundle":
                 self._json(200, build_bundle(
                     (qs.get("range") or ["today"])[0],
-                    _int(qs, "days", 30, (7, 365)),
-                    _int(qs, "weeks", 52, (4, 104)),
+                    _choice(qs, "days", 30, (7, 30, 90, 365)),
+                    _choice(qs, "weeks", 52, (26, 52)),
                     _acct(qs),
                 ))
             elif path == "/api/accounts":
@@ -414,6 +405,71 @@ class Handler(BaseHTTPRequestHandler):
                     self._json(500, {"error": "internal", "detail": str(e)})
                 except Exception:
                     pass
+
+    def _read_json(self):
+        """读请求体并解析 JSON；限长 4KB，只接受 application/json。"""
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        if ctype != "application/json":
+            raise ValueError("Content-Type must be application/json")
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except (TypeError, ValueError):
+            raise ValueError("bad Content-Length")
+        if n <= 0 or n > 4096:
+            raise ValueError("bad body size")
+        raw = self.rfile.read(n)
+        try:
+            obj = json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, ValueError):
+            raise ValueError("invalid JSON")
+        if not isinstance(obj, dict):
+            raise ValueError("body must be an object")
+        return obj
+
+    def do_POST(self):
+        """只开放一个写接口：批量改账号显示名。"""
+        self._client_gone = False
+        self._responded = False
+        if not self._host_ok():
+            self._json(403, {"error": "bad_host"})
+            return
+        path = urlparse(self.path).path
+        try:
+            if path != "/api/accounts/rename":
+                self._json(404, {"error": "not_found"})
+                return
+            body = self._read_json()
+            names = body.get("names")
+            if not isinstance(names, dict) or len(names) > 64:
+                self._json(400, {"error": "bad_names"})
+                return
+            # 白名单：只允许当前真实账号与「未归属」，防止往配置里塞任意键
+            allowed = {aggregate.ACCT_NONE} | {
+                x["user_id"] for x in AGG.accounts()["items"]}
+            clean = {}
+            for uid, name in names.items():
+                uid = str(uid).strip()
+                if uid not in allowed:
+                    self._json(400, {"error": "unknown_account", "uid": uid})
+                    return
+                name = "" if name is None else str(name).strip()
+                if len(name) > 32 or any(ord(c) < 32 for c in name):
+                    self._json(400, {"error": "bad_name", "uid": uid})
+                    return
+                clean[uid] = name
+            config.set_account_aliases(clean)
+            AGG.invalidate_labels()
+            STORE.bump()          # 推版本号：前端整页重拉，所有名字一起更新
+            self._json(200, {"ok": True, "aliases": dict(config.ACCOUNT_ALIASES),
+                             "accounts": AGG.accounts()})
+        except ValueError as e:
+            self._json(400, {"error": "bad_request", "detail": str(e)})
+        except CLIENT_GONE as e:
+            self._drain_gone(e)
+        except Exception as e:
+            log.exception("改名失败：%s", path)
+            if not self._responded and not self._client_gone:
+                self._json(500, {"error": "internal", "detail": str(e)})
 
     def _stream(self):
         q = HUB.attach()
@@ -473,6 +529,15 @@ def _int(qs, key, default, bounds):
     return max(lo, min(hi, v))
 
 
+def _choice(qs, key, default, allowed):
+    """把客户端参数收敛到有限集合，避免任意值撑出大量缓存键。"""
+    try:
+        v = int((qs.get(key) or [default])[0])
+    except (TypeError, ValueError):
+        return default
+    return v if v in allowed else default
+
+
 # ---------------- 启动 ----------------
 def _healthy(port):
     try:
@@ -524,8 +589,10 @@ def main(argv=None):
     ap.add_argument("--once", action="store_true", help="只建索引并打印摘要，不起服务")
     ap.add_argument("--rebuild", action="store_true", help="丢弃索引重建")
     ap.add_argument("--no-credit", action="store_true", help="不读 workbuddy.db")
+    ap.add_argument("--workbuddy-dir", default="", help="覆盖 WorkBuddy 数据源目录")
     args = ap.parse_args(argv)
 
+    config.apply_workbuddy_dir(args.workbuddy_dir)
     config.setup_console()
     config.ensure_dirs()
     logging.basicConfig(

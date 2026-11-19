@@ -5,6 +5,7 @@
 这里只做 GROUP BY，不再碰时区换算 —— 否则跨日会错 8 小时。
 """
 
+import collections
 import datetime
 import json
 import os
@@ -156,7 +157,8 @@ def _r(v, n=1):
 class Aggregator:
     def __init__(self, store):
         self.store = store
-        self._memo = {}
+        # OrderedDict 当 LRU 用：缓存上限封死内存，避免任意参数组合把 _memo 撑大
+        self._memo = collections.OrderedDict()
         self._pending = {}          # key -> Event，单飞用：同一 key 只让一个线程算 SQL
         self._lock = threading.Lock()
         self._cache_hit = 0
@@ -167,19 +169,29 @@ class Aggregator:
 
     # ---------- 账号显示名 ----------
     def _labels(self):
-        """uid -> 唯一显示名，按库里真实存在的账号集合做重名去重。
+        """uid -> 唯一显示名。
 
-        即使手滑给两个账号配了同一个昵称，也会自动补上 UUID 短码，
-        保证前端按钮、饼图、切号时间线里永远能区分。accounts() 每
-        1.5 秒被拉一次，缓存 2 秒足够，避免每拍多一次 SQL。
+        账号集合 = accounts 表里的活跃账号 + 切换时间线里出现过的历史账号，
+        这样历史账号改名后，时间线里的字也能同步。重名的自动补 UUID 短码。
+        缓存 2 秒；改名时由 invalidate_labels() 立刻作废。
         """
         now = time.monotonic()
         hit = self._label_cache
         if hit and now - hit[0] < 2.0:
             return hit[1]
-        rows = self.store.query(
-            "SELECT DISTINCT user_id FROM accounts WHERE %s" % _ACCT_ATTR)
-        labels = {r["user_id"]: _short(r["user_id"]) for r in rows}
+        uids = {r["user_id"] for r in self.store.query(
+            "SELECT DISTINCT user_id FROM accounts WHERE %s" % _ACCT_ATTR)}
+        try:
+            for r in self.store.query(
+                    "SELECT DISTINCT from_user u FROM account_switches "
+                    "WHERE from_user IS NOT NULL UNION "
+                    "SELECT DISTINCT to_user FROM account_switches "
+                    "WHERE to_user IS NOT NULL"):
+                if r["u"]:
+                    uids.add(r["u"])
+        except Exception:
+            pass
+        labels = {uid: _short(uid) for uid in uids}
         counts = {}
         for name in labels.values():
             counts[name] = counts.get(name, 0) + 1
@@ -269,6 +281,7 @@ class Aggregator:
             hit = self._memo.get(key)
             if hit and hit[0] == ver and time.monotonic() - hit[1] < max_age:
                 self._cache_hit += 1
+                self._memo.move_to_end(key)
                 return hit[2]
             ev = self._pending.get(key)
             owner = ev is None
@@ -283,6 +296,7 @@ class Aggregator:
                 hit = self._memo.get(key)
                 if hit and hit[0] == ver and time.monotonic() - hit[1] < max_age:
                     self._cache_hit += 1
+                    self._memo.move_to_end(key)
                     return hit[2]
 
         try:
@@ -296,6 +310,9 @@ class Aggregator:
             cur = self._memo.get(key)
             if cur is None or cur[0] <= ver:    # 慢算者不许覆盖更新的版本
                 self._memo[key] = (ver, time.monotonic(), val)
+                self._memo.move_to_end(key)
+                while len(self._memo) > config.CACHE_MAX_ENTRIES:
+                    self._memo.popitem(last=False)
             if mine is not None:
                 self._pending.pop(key, None)
                 mine.set()
@@ -318,12 +335,17 @@ class Aggregator:
         with self._lock:
             self._memo.clear()
 
+    def invalidate_labels(self):
+        """改名后调用：作废标签缓存与聚合缓存，下一拍全部按新名字重算。"""
+        self._label_cache = None
+        self.invalidate()
+
     # ---------- 账号参数 ----------
     def normalize_acct(self, raw):
         """白名单化：只允许 None / __none__ / 库里真实存在的 user_id。
 
         不这么做有两个后果：acct 直接来自 query string，会拼进 `_memo` 的 key，
-        而 `_memo` 从不淘汰 —— 构造随机参数就能把内存打满；同时也让非法值
+        而缓存条目会常驻 —— 随机参数会撑出大量无用键；同时也让非法值
         悄悄退化成"全部"，比报错更符合看板的使用预期。
         """
         a = (raw or "").strip()
@@ -1035,9 +1057,14 @@ class Aggregator:
         uid = self.store.account_of(cur) if cur else None
         un = self.store.scalar(
             "SELECT COUNT(*) FROM accounts WHERE user_id IS NULL OR user_id=''") or 0
+        labels = dict(self._labels())
+        labels[ACCT_NONE] = _none_label()
         return {
             "available": bool(items),
             "items": items,
+            # 全站唯一的账号名字典：前端所有位置都从这里取，不再自己拼名字
+            "labels": labels,
+            "aliases": dict(getattr(config, "ACCOUNT_ALIASES", {}) or {}),
             "current": {"user_id": uid, "short": self._label(uid) if uid else None,
                         "session_id": cur},
             "unattributed_sessions": un,
@@ -1099,7 +1126,7 @@ class Aggregator:
                                               "account_short")},
             "all_time": a,
             "w30": self.window(30, acct),
-            "top_sessions": self.top_sessions(1, 5, acct),
+            "top_sessions": self.top_sessions(1, 20, acct),
             "credit": self.credits(acct=acct),
             "totals": {"files": self.store.scalar("SELECT COUNT(*) FROM files") or 0,
                        "events": self.store.scalar("SELECT COUNT(*) FROM events") or 0},

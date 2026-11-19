@@ -3,23 +3,17 @@ rem Stop the running panel. Data and index are kept.
 setlocal
 cd /d "%~dp0"
 
-if not exist "data\panel.pid" (
-  echo Panel is not running.
-  exit /b 0
+set "PY="
+for /d %%d in ("%USERPROFILE%\.workbuddy\binaries\python\versions\*") do (
+  if not defined PY if exist "%%d\python.exe" set "PY=%%d\python.exe"
+)
+if not defined PY for /f "delims=" %%i in ('where python 2^>nul') do (
+  if not defined PY for %%j in ("%%i") do if %%~zj GTR 0 set "PY=%%i"
+)
+if not defined PY (
+  echo Python not found.
+  exit /b 1
 )
 
-set /p PID=<"data\panel.pid"
-if "%PID%"=="" (
-  del /q "data\panel.pid" >nul 2>nul
-  echo Pid file was empty, cleaned up.
-  exit /b 0
-)
-
-taskkill /PID %PID% /F >nul 2>nul
-if errorlevel 1 (
-  echo Process %PID% was not running.
-) else (
-  echo Panel stopped, pid %PID%.
-)
-del /q "data\panel.pid" >nul 2>nul
-exit /b 0
+"%PY%" "%~dp0panel.py" stop
+exit /b %errorlevel%

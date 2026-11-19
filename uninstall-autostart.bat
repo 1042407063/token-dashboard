@@ -3,11 +3,17 @@ rem Remove the autostart entry. Does not delete any data.
 setlocal
 cd /d "%~dp0"
 
-where python >nul 2>nul
-if errorlevel 1 (
-  echo Python 3 not found.
+set "PY="
+for /d %%d in ("%USERPROFILE%\.workbuddy\binaries\python\versions\*") do (
+  if not defined PY if exist "%%d\python.exe" set "PY=%%d\python.exe"
+)
+if not defined PY for /f "delims=" %%i in ('where python 2^>nul') do (
+  if not defined PY for %%j in ("%%i") do if %%~zj GTR 0 set "PY=%%i"
+)
+if not defined PY (
+  echo Python not found.
   exit /b 1
 )
 
-python "%~dp0tools\autostart.py" uninstall
-exit /b 0
+"%PY%" "%~dp0tools\autostart.py" uninstall
+exit /b %errorlevel%

@@ -44,6 +44,13 @@ function shortParts(n) {
   return [n.toLocaleString('zh-CN'), ''];
 }
 function fmtShort(n) { const p = shortParts(n); return p[0] + p[1]; }
+/* 坐标轴刻度专用：去掉 ".0" 尾巴，让 0 / 5万 / 10万 排在一起时位数一致，
+   原来 5.0万、10.0万 混着 0 和 5万，右对齐后小数点对不齐，看着很脏 */
+function fmtAxis(n) {
+  const [num, unit] = shortParts(n);
+  if (!unit) return num;
+  return num.replace(/\.0+$/, '').replace(/(\.\d)0$/, '$1') + unit;
+}
 function fmtFull(n) { return Math.round(n || 0).toLocaleString('zh-CN'); }
 function fmtDur(s) {
   s = Math.max(0, Math.round(s || 0));
@@ -72,6 +79,29 @@ function hexA(hex, a) {
   const n = parseInt(hex, 16);
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 }
+
+/* ---------------- 统一的图形语言 ----------------
+   三张柱状图原先各写各的：小时图是半透明纯色、项目图是 .7 透明、趋势图是
+   渐变，圆角 3 和 3 混着用，粗细 56%/20/34 也不一致，摆在一屏里像三个
+   不同的产品。这里收成一套：同一套渐变、同一档圆角、同一套强调色。 */
+const BAR_R = 4;                      // 柱顶圆角，竖直柱用
+/* 注意：这里收的是 hex，透明度在函数内部转。
+   之前写成 barFillH(hexA(accent, .78))，等于对已经变成 rgba() 的字符串
+   再跑一次 hexA，parseInt 拿到 NaN，渐变终点是 rgba(NaN,...)，ECharts 直接
+   当成无效色渲染成脏灰 —— 项目条右端发黑就是这么来的。 */
+function barFillV(hex, a0 = 1, a1 = .55) {   // 竖直柱：上浓下淡
+  return new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+    { offset: 0, color: hexA(hex, a0) }, { offset: 1, color: hexA(hex, a1) },
+  ]);
+}
+function barFillH(hex, a0 = 1, a1 = .55) {   // 水平柱：左浓右淡
+  return new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+    { offset: 0, color: hexA(hex, a0) }, { offset: 1, color: hexA(hex, a1) },
+  ]);
+}
+/* 常规柱用弱化色，当前/第一名用主色 —— 强弱只体现在透明度上，不换色相 */
+const barDim = (hex) => barFillV(hex, .5, .3);
+const barHot = (hex) => barFillV(hex, 1, .62);
 
 /* ---------------- 数据指纹 ----------------
    放在"数据 → 视图"的边界，而不是 setOption 里：
@@ -369,16 +399,19 @@ function drawMini(hours, nowHour) {
 function initCharts() {
   charts.hour = echarts.init($('chartHour'), null, { renderer: 'canvas' });
   charts.pie = echarts.init($('chartPie'), null, { renderer: 'canvas' });
-  charts.proj = echarts.init($('chartProj'), null, { renderer: 'canvas' });
   charts.trend = echarts.init($('chartTrend'), null, { renderer: 'canvas' });
   charts.heat = echarts.init($('chartHeat'), null, { renderer: 'canvas' });
   const ro = new ResizeObserver(debounce(() => {
     Object.values(charts).forEach(c => c && c.resize());
-    syncRankMode();               // 卡片变高/变矮时切换单行/两行排版
+    // 两张排行都是 HTML，不归 ECharts 管，自己盯高度切单行/两行
+    syncRankMode($('projRank'));
+    syncRankMode($('sessRank'));
   }, 150));
   document.querySelectorAll('.chart').forEach(el => ro.observe(el));
-  const rk = $('sessRank');
-  if (rk) ro.observe(rk);          // 排行是 HTML，不归 ECharts 管，自己盯高度
+  ['projRank', 'sessRank'].forEach(id => {
+    const el = $(id);
+    if (el) ro.observe(el);
+  });
 }
 
 function renderHour() {
@@ -395,7 +428,7 @@ function renderHour() {
   charts.hour.setOption({
     animation: ANIM,
     animationDurationUpdate: ANIM ? 260 : 0,
-    grid: { left: 48, right: 12, top: 14, bottom: NARROW() ? 28 : 22 },
+    grid: { left: 46, right: 10, top: 16, bottom: NARROW() ? 26 : 20 },
     tooltip: {
       trigger: 'axis',
       backgroundColor: v('--panel'), borderColor: v('--border'), textStyle: { color: text, fontSize: 12 },
@@ -413,24 +446,37 @@ function renderHour() {
       data: Array.from({ length: 24 }, (_, i) => i + '时'),
       axisLine: { lineStyle: { color: grid } },
       axisTick: { show: false },
-      axisLabel: { color: muted, fontSize: NARROW() ? 9 : 10, interval: NARROW() ? 5 : 2 },
+      // 每 3 小时一个刻度，但"当前小时"和"峰值小时"必须单独标出来：
+      // 否则柱子悬在 9时 和 12时 中间，读者得自己数格子才知道是哪一刻
+      axisLabel: {
+        color: muted, fontSize: NARROW() ? 9 : 10,
+        interval: (idx) => idx % (NARROW() ? 6 : 3) === 0 || idx === nowHour || idx === peak,
+        // 峰值那一格加粗并染色，和"峰值 11 时"的文案对上
+        formatter: (val, idx) => (idx === peak && peak != null ? `{p|${val}}` : val),
+        rich: { p: { color: accent, fontWeight: 700, fontSize: NARROW() ? 9 : 10 } },
+      },
     },
     yAxis: {
       type: 'value',
       splitLine: { lineStyle: { color: grid } },
-      axisLabel: { color: muted, fontSize: 10, formatter: (x) => fmtShort(x) },
+      axisLabel: { color: muted, fontSize: 10, formatter: (x) => fmtAxis(x) },
     },
     series: [
       {
         id: 'hour',
-        name: label, type: 'bar', barWidth: '56%', animationDurationUpdate: 260,
+        name: label, type: 'bar',
+        // 24 根柱子塞进 940px，固定 barWidth 会撑爆，用百分比 + 上限
+        barWidth: '62%', barMaxWidth: 26, barCategoryGap: '30%',
+        animationDurationUpdate: 260,
         data: hours.map((val, i) => ({
           value: val,
           itemStyle: {
-            color: i === nowHour ? accent : hexA(accent, .38),
-            borderRadius: [3, 3, 0, 0],
+            // 当前小时用主色实心，其余用同一色相的弱化渐变，视觉上是一族
+            color: i === nowHour ? barHot(accent) : barDim(accent),
+            borderRadius: [BAR_R, BAR_R, 0, 0],
           },
         })),
+        emphasis: { itemStyle: { color: barHot(accent) } },
       },
     ],
     // 用 merge 而不是 notMerge：后者每次都会重建组件，入场动画会重播，
@@ -530,90 +576,34 @@ function renderPie() {
 }
 
 /* ---------------- 项目 TOP5 / 会话 TOP5 ---------------- */
-/* 柱子右侧永远两段：token 在前、积分在后。没有积分记录写 —，不写 0 */
-function barLabel(it, value) {
-  const cr = (it.credit_reqs || 0) > 0 ? fmtCredit(it.credit) : '—';
-  return `{v|${fmtShort(value)}}{c|· ${cr}}`;
-}
-const BAR_RICH = (muted, faint) => ({
-  v: { color: muted, fontSize: 10.5, fontFamily: 'inherit' },
-  c: { color: faint, fontSize: 10, fontFamily: 'inherit', padding: [0, 0, 0, 3] },
-});
 
-function renderProj() {
-  const items = (state.p.by_project || []).slice(0, 5);
-  const accent = v('--accent'), muted = v('--muted'), text = v('--text');
-  const faint = v('--faint');
-  const rows = items.slice().reverse();               // 第一名放最上面
-  const max = Math.max(...rows.map(x => x.tokens), 1);
-  if (!dirty('proj', [state.range, items, NARROW()])) return;
-
-  charts.proj.setOption({
-    animation: ANIM,
-    animationDurationUpdate: ANIM ? 260 : 0,
-    // 不用 containLabel：它会在宽度紧张时把绘图区算得很小，这里直接给固定边距
-    grid: NARROW() ? { left: 84, right: 96, top: 8, bottom: 8 }
-          : { left: 112, right: 118, top: 10, bottom: 10 },
-    tooltip: {
-      trigger: 'item',
-      backgroundColor: v('--panel'), borderColor: v('--border'),
-      textStyle: { color: text, fontSize: 12 },
-      formatter: (p) => {
-        const it = rows[p.dataIndex] || {};
-        return `${p.name}<br>${fmtFull(p.value)} tokens` +
-          `<br><span style="opacity:.65">积分 ${fmtCredit(it.credit_reqs ? it.credit : null)}` +
-          (it.turns ? ` · ${covText(it.credit_reqs, it.turns)}` : '') + `</span>`;
-      },
-    },
-    xAxis: { type: 'value', show: false, max: max * 1.02 },
-    yAxis: {
-      type: 'category',
-      data: rows.map(x => x.label || x.name),
-      axisLine: { show: false },
-      axisTick: { show: false },
-      axisLabel: { color: text, fontSize: NARROW() ? 10 : 11, width: NARROW() ? 72 : 96, overflow: 'truncate' },
-    },
-    series: [{
-      id: 'proj',
-      type: 'bar',
-      data: rows.map(x => x.tokens),
-      barMaxWidth: 20,
-      barCategoryGap: '38%',
-      itemStyle: { color: hexA(accent, .7), borderRadius: [0, 3, 3, 0] },
-      label: {
-        show: true, position: 'right',
-        formatter: (p) => barLabel(rows[p.dataIndex] || {}, p.value),
-        rich: BAR_RICH(muted, faint),
-      },
-    }],
-  }, { notMerge: false, lazyUpdate: true });
-
-  const lbl = RANGE_LABEL[state.range] || '今日';
-  $('projCap').textContent = '项目消耗 TOP 5';
-  $('projHint').textContent = items.length
-    ? `${lbl} · 右为 token · 积分`
-    : `${lbl}暂无数据`;
-}
-
-/* ---------------- 会话消耗 TOP 5 ----------------
+/* ---------------- 排行列表（项目 / 会话共用） ----------------
    这一块刻意不用 ECharts：类目标签的基线锚定让"两行标签"和柱子对不齐，
    行距还会忽宽忽窄（实测同一面板里 33px / 21px 混着来）。改成行布局后
-   每一行的高度、名称省略、模型名换行都是确定的。 */
-function renderSessList() {
-  const list = (state.p && state.p.top_sessions) || [];
-  const box = $('sessRank');
+   每一行的高度、名称省略、副标题都是确定的。
+
+   项目排行和会话排行用的是同一套结构：序号圆牌 + 名称 + 右侧副标签 +
+   条形 + 数值。两栏并排时行高、条形粗细、颜色、省略规则全部一致，
+   只是喂进来的字段不同（项目给占比，会话给模型名）。 */
+function rankRows(list) {
+  // 统一成 {name, sub, tokens, credit, creditReqs, turns, tip}
+  return list.map((x) => ({
+    name: x.title || x.label || x.name || x.project || '未命名',
+    sub: x.model || (x.share != null ? x.share.toFixed(1) + '%' : ''),
+    tokens: x.tokens || 0,
+    credit: x.credit,
+    creditReqs: x.credit_reqs || 0,
+    turns: x.turns || 0,
+    tip: x._tip || '',
+  }));
+}
+
+function renderRankList(box, list, opts) {
   if (!box) return;
-  if (!dirty('sess', [state.range, list])) return;
-
-  const lbl = RANGE_LABEL[state.range] || '今日';
-  $('sessHint').textContent = list.length
-    ? `${lbl} · 右为 token · 积分`
-    : `${lbl}暂无数据`;
-
   if (!list.length) {
-    setHTML(box, '<div class="rk-empty">该区间没有会话记录</div>');
+    setHTML(box, `<div class="rk-empty">${opts.empty}</div>`);
     box._rows = 0;
-    syncRankMode();
+    syncRankMode(box);
     return;
   }
   const max = Math.max(...list.map(x => x.tokens), 1);
@@ -631,35 +621,79 @@ function renderSessList() {
   list.forEach((x, i) => {
     const el = box.children[i];
     if (!el) return;
-    const cr = (x.credit_reqs || 0) > 0 ? fmtCredit(x.credit) : '—';
+    const cr = x.creditReqs > 0 ? fmtCredit(x.credit) : '—';
     setText(el.querySelector('.rk-no'), String(i + 1));
-    setText(el.querySelector('.rk-name'), x.title || x.project || '未命名会话');
-    setText(el.querySelector('.rk-model'), x.model || '未知模型');
+    setText(el.querySelector('.rk-name'), x.name);
+    setText(el.querySelector('.rk-model'), x.sub || '');
     const pct = Math.max(1.5, (x.tokens || 0) / max * 100);
     const fill = el.querySelector('.rk-track i');
     if (fill._w !== pct) { fill._w = pct; fill.style.width = pct.toFixed(2) + '%'; }
     setText(el.querySelector('.rk-val'), `${fmtShort(x.tokens)} · ${cr}`);
-
-    const dur = Math.max(0, ((x.last_ts || 0) - (x.first_ts || 0)) / 1000);
-    const tip = `${x.title || '未命名会话'}\n${x.model || '未知模型'}\n` +
-      `${fmtFull(x.tokens)} tokens · 积分 ${cr}\n` +
-      `${x.turns || 0} 轮 · ${fmtDurShort(dur)} · ${covText(x.credit_reqs, x.turns)}\n` +
-      `历史累计 ${fmtFull(x.total_tokens || 0)} tokens · 积分 ` +
-      `${fmtCredit(x.total_credit || null)}`;
-    if (el.title !== tip) el.title = tip;
+    if (x.tip && el.title !== x.tip) el.title = x.tip;
     el.classList.toggle('top', i === 0);
   });
 
-  syncRankMode();
+  syncRankMode(box);
+}
+
+/* ---------------- 项目消耗 TOP 5 ---------------- */
+function renderProj() {
+  const items = (state.p && state.p.by_project) || [];
+  const box = $('projRank');
+  if (!box) return;
+  if (!dirty('proj', [state.range, items])) return;
+
+  const lbl = RANGE_LABEL[state.range] || '今日';
+  const list = items.slice(0, 5);
+  $('projCap').textContent = '项目消耗 TOP 5';
+  $('projHint').textContent = list.length
+    ? `${lbl} · 显示 ${list.length}/${items.length} 条 · 右为 token · 积分`
+    : `${lbl}暂无数据`;
+
+  const rows = rankRows(list).map((r, i) => {
+    const src = list[i];
+    r.tip = `${r.name}\n${fmtFull(r.tokens)} tokens · 积分 ${fmtCredit(r.creditReqs ? r.credit : null)}\n` +
+      `${r.turns} 轮 · ${covText(r.creditReqs, r.turns)}` +
+      (src.share != null ? `\n占比 ${src.share.toFixed(1)}%` : '');
+    return r;
+  });
+  renderRankList(box, rows, { empty: '该区间没有项目记录' });
+}
+
+/* ---------------- 会话消耗 TOP 5 ---------------- */
+function renderSessList() {
+  const items = (state.p && state.p.top_sessions) || [];
+  const box = $('sessRank');
+  if (!box) return;
+  if (!dirty('sess', [state.range, items])) return;
+
+  const lbl = RANGE_LABEL[state.range] || '今日';
+  const list = items.slice(0, 5);
+  $('sessHint').textContent = list.length
+    ? `${lbl} · 显示 ${list.length}/${items.length} 条 · 右为 token · 积分`
+    : `${lbl}暂无数据`;
+
+  const rows = rankRows(list).map((r, i) => {
+    const src = list[i];
+    const dur = Math.max(0, ((src.last_ts || 0) - (src.first_ts || 0)) / 1000);
+    r.tip = `${r.name}\n${r.sub || '未知模型'}\n` +
+      `${fmtFull(r.tokens)} tokens · 积分 ${fmtCredit(r.creditReqs ? r.credit : null)}\n` +
+      `${r.turns} 轮 · ${fmtDurShort(dur)} · ${covText(r.creditReqs, r.turns)}\n` +
+      `历史累计 ${fmtFull(src.total_tokens || 0)} tokens · 积分 ` +
+      `${fmtCredit(src.total_credit || null)}`;
+    return r;
+  });
+  renderRankList(box, rows, { empty: '该区间没有会话记录' });
 }
 
 /* 卡片高度决定行内排版：矮到放不下两行就切单行，绝不互相压 */
-function syncRankMode() {
-  const box = $('sessRank');
+function syncRankMode(box) {
+  box = box || $('sessRank');
   if (!box) return;
+  // 滚动模式下始终用紧凑单行，避免内容被挤压
   const n = Math.max(1, box.children.length);
   const perRow = box.clientHeight / n;
-  const compact = perRow < 32;
+  const compact = perRow < 40;  // 阈值从 32 提高到 40，给滚动模式更多空间
   if (box._compact !== compact) {
     box._compact = compact;
     box.classList.toggle('compact', compact);
@@ -674,45 +708,60 @@ function renderTrend() {
   const dates = s.map(x => x.date.slice(5));
   const vals = s.map(x => x.tokens);
 
+  // 7 天窗口用 3 日均，30 天用 7 日均：窗口越长噪声越大，均线要跟着拉长
+  const win = state.days > 7 ? 7 : 3;
   const ma = vals.map((_, i) => {
-    const seg = vals.slice(Math.max(0, i - 6), i + 1);
+    const seg = vals.slice(Math.max(0, i - win + 1), i + 1);
     return Math.round(seg.reduce((a, b) => a + b, 0) / seg.length);
   });
 
   charts.trend.setOption({
     animation: ANIM,
-    grid: { left: 44, right: 8, top: 8, bottom: 18 },
+    grid: { left: 46, right: 10, top: 34, bottom: 20 },
+    // 柱+线混排，没有图例谁也认不出那条虚线是什么。放在右上角，和
+    // "近 30 天累计" 的文案同一行区域，不额外占高度
+    legend: {
+      show: true, right: 0, top: 0, itemWidth: 10, itemHeight: 6, itemGap: 12,
+      icon: 'roundRect',
+      textStyle: { color: muted, fontSize: 10 },
+      data: [{ name: '每日', icon: 'roundRect' }, { name: `${win}日均`, icon: 'line' }],
+    },
     tooltip: {
       trigger: 'axis',
+      axisPointer: { type: 'shadow', shadowStyle: { color: hexA(accent, .07) } },
       backgroundColor: v('--panel'), borderColor: v('--border'), textStyle: { color: text, fontSize: 12 },
       formatter: (ps) => {
         const i = ps[0].dataIndex;
         return `<b>${s[i].date}</b><br>${fmtFull(vals[i])} tokens` +
           `<br><span style="opacity:.65">积分 ${fmtCredit(s[i].credit_reqs ? s[i].credit : null)}` +
-          ` · ${s[i].turns} 轮 · 7日均 ${fmtShort(ma[i])}</span>`;
+          ` · ${s[i].turns} 轮 · ${win}日均 ${fmtShort(ma[i])}</span>`;
       },
     },
     xAxis: {
-      type: 'category', data: dates, boundaryGap: false,
+      type: 'category', data: dates,
       axisLine: { lineStyle: { color: grid } }, axisTick: { show: false },
-      axisLabel: { color: muted, fontSize: 10,
-                   interval: Math.max(0, Math.floor(s.length / (NARROW() ? 4 : 8))) },
+      axisLabel: { color: muted, fontSize: 10, hideOverlap: true,
+                   interval: state.days > 7
+                     ? Math.max(0, Math.floor(s.length / (NARROW() ? 4 : 8)))
+                     : 0 },
     },
     yAxis: {
       type: 'value', splitLine: { lineStyle: { color: grid } },
-      axisLabel: { color: muted, fontSize: 10, formatter: (x) => fmtShort(x) },
+      axisLabel: { color: muted, fontSize: 10, formatter: (x) => fmtAxis(x) },
     },
     series: [{
-      name: '每日', type: 'line', data: vals, smooth: .28, symbol: 'none',
-      lineStyle: { color: accent, width: 2 },
-      areaStyle: {
-        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: hexA(accent, .3) }, { offset: 1, color: hexA(accent, .01) },
-        ]),
+      name: '每日', type: 'bar', data: vals, z: 1,
+      barMaxWidth: NARROW() ? 18 : 28, barCategoryGap: '38%',
+      itemStyle: {
+        borderRadius: [BAR_R, BAR_R, 0, 0],
+        color: barFillV(accent, .92, .58),
       },
+      emphasis: { itemStyle: { color: barFillV(accent) } },
     }, {
-      name: '7日均', type: 'line', data: ma, smooth: .3, symbol: 'none',
-      lineStyle: { color: v('--accent-2'), width: 1.4, type: 'dashed', opacity: .9 },
+      name: `${win}日均`, type: 'line', data: ma, smooth: .3, symbol: 'none', z: 2,
+      lineStyle: { color: v('--accent-2'), width: 1.6, type: 'dashed', opacity: .95 },
+      // 均线下面垫一层同色微透明填充，柱和线的层次一眼能分开
+      areaStyle: { color: hexA(v('--accent-2'), .06) },
     }],
   }, { notMerge: false, lazyUpdate: true });
 
@@ -819,14 +868,16 @@ function relayout() {
 const ACCT_NONE = '__none__';
 
 function acctName(uid) {
-  if (!uid) return '未归属';
-  // 显示名由后端统一给（config.ACCOUNT_ALIASES / 账号名模板，且已做唯一化），
-  // 切号时间线也跟着用；库里暂时查不到的账号退回带短码的名字，别再共用同一个名字
+  // 全站唯一数据源：后端 labels 里含活跃账号、历史账号与「未归属」。
+  // 改名后后端重算并 bump，前端拉一次全量，所有位置一起换字。
   const a = state.accounts || {};
+  const labels = a.labels || {};
+  const key = uid || ACCT_NONE;
+  if (labels[key]) return labels[key];
   const cur = a.current || {};
   if (cur.user_id === uid && cur.short) return cur.short;
   const hit = (a.items || []).find(x => x.user_id === uid);
-  return (hit && hit.short) || '账号 ' + uid.slice(0, 8);
+  return (hit && hit.short) || labels[ACCT_NONE] || '未归属';
 }
 
 function renderAcct(force) {
@@ -836,8 +887,8 @@ function renderAcct(force) {
 
   const chip = $('acctChip');
   if (chip) {
-    setText(chip, cur.short ? '账号 ' + cur.short
-      : (a.available ? '账号 —' : '账号不可用'));
+    // short 已经是完整显示名（默认带「账号」前缀或用户昵称），不要再拼一次
+    setText(chip, cur.short || (a.available ? '账号 —' : '账号不可用'));
     const tip = cur.user_id ? '当前账号 ' + cur.user_id : '未识别到当前账号';
     if (chip.title !== tip) chip.title = tip;
     chip.classList.toggle('off', !cur.short);
@@ -846,8 +897,9 @@ function renderAcct(force) {
   const seg = $('segAcct');
   if (!seg) return;
   const hasNone = (a.unattributed_sessions || 0) > 0;
-  // short 也要进 key：改了昵称后按钮文字得跟着刷新，不能只看 user_id
-  const key = JSON.stringify([items.map(x => [x.user_id, x.short]), hasNone, state.acct]);
+  // labels 进 key：任何账号改名（含未归属、历史账号）都要重画按钮
+  const key = JSON.stringify([items.map(x => [x.user_id, x.short]),
+    a.labels || {}, hasNone, state.acct, cur.short]);
   if (!force && seg._k === key) return;
   seg._k = key;
 
@@ -856,7 +908,8 @@ function renderAcct(force) {
       `<button data-v="${escapeHtml(x.user_id)}"${state.acct === x.user_id ? ' class="on"' : ''}>`
       + `${escapeHtml(x.short)}</button>`));
   if (hasNone) {
-    btns.push(`<button data-v="${ACCT_NONE}"${state.acct === ACCT_NONE ? ' class="on"' : ''}>未归属</button>`);
+    btns.push(`<button data-v="${ACCT_NONE}"${state.acct === ACCT_NONE ? ' class="on"' : ''}>`
+      + `${escapeHtml(acctName(ACCT_NONE))}</button>`);
   }
   setHTML(seg, btns.join(''));
   seg.style.display = items.length ? '' : 'none';
@@ -904,6 +957,99 @@ async function toggleAcctLog() {
   }
 }
 
+
+/* ---------------- 账号改名 ---------------- */
+function renameRows() {
+  const a = state.accounts || {};
+  const labels = a.labels || {};
+  const rows = (a.items || []).map(x => ({
+    uid: x.user_id, label: labels[x.user_id] || x.short,
+  }));
+  rows.push({ uid: ACCT_NONE, label: labels[ACCT_NONE] || '未归属' });
+  return rows;
+}
+
+function renderRenamePop() {
+  const pop = $('acctRenamePop');
+  if (!pop) return;
+  const aliases = (state.accounts || {}).aliases || {};
+  const lines = renameRows().map(r =>
+    `<div class="row rename-row"><span class="dim" title="${escapeHtml(r.uid)}">`
+    + `${escapeHtml(r.label)}</span>`
+    + `<input type="text" data-uid="${escapeHtml(r.uid)}" maxlength="32" `
+    + `value="${escapeHtml(aliases[r.uid] || '')}" placeholder="${escapeHtml(r.label)}">`
+    + `</div>`).join('');
+  setHTML(pop, '<div class="row total"><span>自定义账号名称（留空恢复默认）</span></div>'
+    + lines
+    + '<div class="row total rename-actions"><span class="rename-msg" id="renameMsg"></span>'
+    + '<button class="btn-mini" id="renameSave">保存</button></div>');
+  pop.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); saveRename(); }
+    });
+  });
+  const btn = $('renameSave');
+  if (btn) btn.addEventListener('click', saveRename);
+}
+
+async function saveRename() {
+  const pop = $('acctRenamePop');
+  const msg = $('renameMsg');
+  if (!pop) return;
+  const names = {};
+  pop.querySelectorAll('input[data-uid]').forEach(inp => {
+    names[inp.dataset.uid] = inp.value.trim();
+  });
+  if (msg) setText(msg, '保存中…');
+  try {
+    const r = await fetch('/api/accounts/rename', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ names }),
+    });
+    const d = await r.json();
+    if (!r.ok || !d.ok) throw new Error(d.error || ('HTTP ' + r.status));
+    if (d.accounts) state.accounts = d.accounts;
+
+    // 清掉所有渲染指纹 + 强制重拉整页：顶栏、筛选、饼图、会话卡、时间线一起换字
+    resetDirty();
+    renderAcct(true);
+    await sync(true);
+
+    // 弹层里显示的是"实际生效的名字"（重名时后端会补短码），就地更新不重建 DOM
+    const labels = (state.accounts && state.accounts.labels) || {};
+    pop.querySelectorAll('.rename-row').forEach(row => {
+      const inp = row.querySelector('input');
+      if (!inp) return;
+      const live = labels[inp.dataset.uid] || inp.placeholder;
+      const tag = row.querySelector('.dim');
+      if (tag) setText(tag, live);
+      inp.placeholder = live;
+    });
+    if (msg) setText(msg, '已保存');
+
+    const logPop = $('acctLogPop');
+    if (logPop && logPop.classList.contains('on')) {
+      logPop.classList.remove('on');
+      toggleAcctLog();
+    }
+  } catch (e) {
+    if (msg) setText(msg, '保存失败：' + e.message);
+  }
+}
+
+function toggleRenamePop() {
+  const pop = $('acctRenamePop');
+  if (!pop) return;
+  if (pop.classList.contains('on')) { pop.classList.remove('on'); return; }
+  const logPop = $('acctLogPop');
+  if (logPop) logPop.classList.remove('on');
+  renderRenamePop();
+  pop.classList.add('on');
+  const first = pop.querySelector('input');
+  if (first) first.focus();
+}
+
 function bindAcct() {
   const seg = $('segAcct');
   if (seg) {
@@ -921,10 +1067,17 @@ function bindAcct() {
   if (logBtn) {
     logBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleAcctLog(); });
   }
+  const renameBtn = $('acctRenameBtn');
+  const renamePop = $('acctRenamePop');
+  if (renameBtn) {
+    renameBtn.addEventListener('click', (e) => { e.stopPropagation(); toggleRenamePop(); });
+  }
   document.addEventListener('click', (e) => {
-    if (!pop || !pop.classList.contains('on')) return;
-    if (pop.contains(e.target) || (logBtn && logBtn.contains(e.target))) return;
-    pop.classList.remove('on');
+    for (const [p, trigger] of [[pop, logBtn], [renamePop, renameBtn]]) {
+      if (!p || !p.classList.contains('on')) continue;
+      if (p.contains(e.target) || (trigger && trigger.contains(e.target))) continue;
+      p.classList.remove('on');
+    }
   });
 }
 
@@ -1142,13 +1295,20 @@ async function boot() {
   const pacct = new URLSearchParams(location.search).get('acct');
   if (pacct) state.acct = pacct;
 
+  // 支持 ?days=7 / 30 直接打开指定趋势窗（方便分享与截图核对）
+  const pdays = +new URLSearchParams(location.search).get('days');
+  if (pdays === 7 || pdays === 30) {
+    state.days = pdays;
+    [...$('segDays').children].forEach(b => b.classList.toggle('on', +b.dataset.v === pdays));
+  }
+
   tickClock();
   setInterval(tickClock, 1000);
   if (STATIC) setLive('off', '静态快照');
 
   // 首屏：注入的数据完整就立刻画，省掉一次请求；不完整（比如 ?range=7d）就拉一次
   const bootOk = BOOT && BOOT.v && BOOT.period && BOOT.summary
-    && state.range === 'today' && !state.acct;
+    && state.range === 'today' && !state.acct && state.days === 30;
   if (bootOk) {
     applyBundle({
       v: BOOT.v, acct: null, accounts: BOOT.accounts,

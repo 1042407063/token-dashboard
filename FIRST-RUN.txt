@@ -1,0 +1,24 @@
+token-panel - WorkBuddy Token 用量面板
+========================================
+
+运行前
+  1. 这台电脑装过 WorkBuddy 并用它聊过天
+  2. Python 3.7+（WorkBuddy 自带一份）
+
+启动
+  Windows         双击 start-panel.bat
+  macOS / Linux   python3 panel.py start（或 sh panel.sh start）
+  其它动作        把 start 换成 stop / status / once
+
+打开 http://127.0.0.1:8770/ （只监听本机，别的机器访问不到）
+首次会全量扫一遍历史转录，之后都是增量。
+
+停止
+  Windows         双击 stop-panel.bat，或在启动器里按 S
+  其他系统        python3 panel.py stop
+
+排障
+  data/panel.log              运行日志
+  python tools/selftest.py    自检
+
+完整说明见 README.md，移植与升级见 docs/PORTING.md。
